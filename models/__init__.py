@@ -1,20 +1,31 @@
 
 
 
-from models.single import (
+from models.single_type import (
     SingleType,
-    SingleTypeAttn, 
+    SingleTypeAttn,  
+    # SingleAll
+)
+
+from models.single_point import ( 
     SinglePoint,
     SinglePointAttn, 
     # SingleAll
 )
 
-from models.seq2seq import (
+from models.seq2seq_type import (
     Seq2SeqType,
-    # Seq2SeqTypeAttn, 
+    Seq2SeqTypeAttn, 
     # Seq2SeqPoint, 
     # Seq2SeqAll
 )
+
+# from models.seq2seq_point import (
+#     # Seq2SeqType,
+#     # Seq2SeqTypeAttn, 
+#     Seq2SeqPoint, 
+#     # Seq2SeqAll
+# )
 
 __dict__ = {
     'single_type' : SingleType,
