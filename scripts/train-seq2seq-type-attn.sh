@@ -1,6 +1,6 @@
 CUDA_VISIBLE_DEVICES=0 python3.8 main.py \
-    --mode single_point_attn \
-    --batch_size 1024 \
+    --mode seq2seq_type_attn \
+    --batch_size 17 \
     --epoch 100 \
     --lr 0.001 \
     --src_len 50 \
@@ -8,5 +8,4 @@ CUDA_VISIBLE_DEVICES=0 python3.8 main.py \
     --hidden_dim 256 \
     --valid_interval 1 \
     --data_path ..\
-    # --debug
-    
+    --debug

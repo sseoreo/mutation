@@ -69,7 +69,7 @@ if __name__ == '__main__':
                         help="data path")
     parser.add_argument("--valid_interval",  default=5, type=int,
                         help="epoch inerval for validation.")
-    parser.add_argument("--num_workers",  default=4, type=int,
+    parser.add_argument("--num_workers",  default=2, type=int,
                         help="number of process.")
     args = parser.parse_args()
 
@@ -99,7 +99,7 @@ if __name__ == '__main__':
 
     model = torch.nn.DataParallel(model).to(args.device)
 
-    if args.mode in ['single_type', 'single_point', 'single_all', 'single_type_attn', 'single_point_attn']:
+    if args.mode.startswith('single'):
         trainset = SingleToken(args.data_path, 
                             length=args.src_len, 
                             split='train', 
@@ -112,7 +112,7 @@ if __name__ == '__main__':
         print(len(trainset), len(validset), len(testset))
         
 
-    elif args.mode in ['seq2seq_type', 'seq2seq_point', 'seq2seq_all']:
+    elif args.mode.startswith('seq2seq'):
         trainset = SingleToken(args.data_path, 
                             length=args.src_len, 
                             split='train', 
@@ -141,5 +141,6 @@ if __name__ == '__main__':
 
     testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size,
                                               shuffle=False, num_workers=args.num_workers, drop_last = False)
+    
     test_loss, test_acc, test_f1 = evaluate(args, model, testloader)
 

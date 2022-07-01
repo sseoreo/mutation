@@ -13,14 +13,14 @@ class SingleType(nn.Module):
         self.encoder = Encoder(self.embedding, embedding_dim, hidden_dim, hidden_dim)
         
         # self.decoder = Decoder(vocab_size, hidden_dim)
-        self.decoder = nn.Linear(hidden_dim, vocab_size)
+        self.fc_out = nn.Linear(hidden_dim, vocab_size)
 
     def forward(self, pre_seq, post_seq, *args, **kwargs):
         # pre_seq, post_seq = pre_seq.transpose(1, 0), post_seq.transpose(1, 0)
         
         enc_out, enc_hidden = self.encoder(pre_seq, post_seq)
         # print(enc_out.shape, enc_hidden.shape)
-        dec_out = self.decoder(enc_hidden)
+        dec_out = self.fc_out(enc_hidden)
 
         return dec_out
 
@@ -46,56 +46,6 @@ class SingleTypeAttn(nn.Module):
         dec_out = self.decoder(enc_hidden, enc_out)
         
         return dec_out
-
-class SinglePoint(nn.Module):
-    def __init__(self, args, vocab_size, embedding_dim, hidden_dim, mode):
-        super().__init__()
-        self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        self.encoder = Encoder(self.embedding, embedding_dim, hidden_dim, hidden_dim)
-        
-        self.decoder = nn.Linear(2*hidden_dim, 1)
-
-    def forward(self, pre_seq, post_seq, *args, **kwargs):
-        len_pre = pre_seq.size(1)
-        # pre_seq, post_seq = pre_seq.transpose(1, 0), post_seq.transpose(1, 0)
-        
-        # enc_out: (bsz, len_pre+len_post, enc_hid_dim)
-        # enc_hidden: (bsz, dec_hid_dim)
-        enc_out, enc_hidden = self.encoder(pre_seq, post_seq)
-
-        enc_hidden = enc_hidden.unsqueeze(1).repeat(1, enc_out.size(1), 1)
-
-        output = F.relu(torch.cat([enc_out, enc_hidden], dim=-1))
-        
-        # enc_hidden: (bsz, len_pre+len_post, 1)
-        output = self.decoder(output)
-
-        return torch.sigmoid(output[:, :len_pre, :]), torch.sigmoid(output[:, len_pre:, :])
-
-
-class SinglePointAttn(nn.Module):
-    def __init__(self, args, vocab_size, embedding_dim, hidden_dim, mode):
-        super().__init__()
-        self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        self.encoder = Encoder(self.embedding, embedding_dim, hidden_dim, hidden_dim)
-        
-        self.attn = Attention(hidden_dim, hidden_dim)
-        self.decoder = DecoderPoint(1, hidden_dim, hidden_dim, self.attn)
-        
-        
-    def forward(self, pre_seq, post_seq, *args, **kwargs):
-        len_pre = pre_seq.size(1)
-        # pre_seq, post_seq = pre_seq.transpose(1, 0), post_seq.transpose(1, 0)
-        
-        # enc_out: (bsz, len_pre+len_post, enc_hid_dim)
-        # enc_hidden: (bsz, dec_hid_dim)
-        enc_out, enc_hidden = self.encoder(pre_seq, post_seq)
-
-        # enc_hidden: (bsz, vocab_size)
-        dec_out = self.decoder(enc_hidden, enc_out)
-
-
-        return torch.sigmoid(dec_out[:, :len_pre, :]), torch.sigmoid(dec_out[:, len_pre:, :])
 
 
 class Encoder(nn.Module):
@@ -143,45 +93,7 @@ class Decoder(nn.Module):
         
         self.dec_layer = nn.GRU(input_size=dec_hid_dim, hidden_size=dec_hid_dim, num_layers=1, dropout=drop_p, batch_first=True)
         
-        self.fc_dec = nn.Linear(dec_hid_dim, dec_hid_dim)
-        self.fc_out = nn.Linear(dec_hid_dim+enc_hid_dim, n_classes)
-        self.attention = attention
-
-    def forward(self, hidden, encoder_outputs):
-
-        # [batch size, src len]
-        a = self.attention(hidden, encoder_outputs)
-                
-        # [batch size, 1, src len]
-        a = a.unsqueeze(1)
-        
-        
-        # [batch size, 1, enc hid dim]
-        weighted = torch.bmm(a, encoder_outputs).squeeze(1)
-        
-
-        # [batch size, enc hid dim]
-        output = torch.tanh(self.fc_dec(hidden))
-        
-        # print(output.shape, weighted.shape)
-
-        #prediction = [batch size, output dim]
-        prediction = self.fc_out(torch.cat((output, weighted), dim = 1))
-        
-        
-        return prediction
-
-
-
-class DecoderPoint(nn.Module):
-    def __init__(self, n_classes, enc_hid_dim, dec_hid_dim, attention, drop_p=0.5):
-        super().__init__()
-        
-        self.dec_layer = nn.GRU(input_size=dec_hid_dim, hidden_size=dec_hid_dim, num_layers=1, dropout=drop_p, batch_first=True)
-        
         self.fc1 = nn.Linear(dec_hid_dim, dec_hid_dim)
-        self.fc2 = nn.Linear(dec_hid_dim+enc_hid_dim, dec_hid_dim)
-
         self.fc_out = nn.Linear(dec_hid_dim+enc_hid_dim, n_classes)
         self.attention = attention
 
@@ -201,22 +113,13 @@ class DecoderPoint(nn.Module):
         # [batch size, enc hid dim]
         output = torch.tanh(self.fc1(hidden))
         
-        # print(output.shape, weighted.shape)
-
-        # [batch size, dec hid dim]
-        output = self.fc2(torch.cat((output, weighted), dim = 1))
         
-        # [batch size, len_pre+len_post, dec_hid_dim]
-        output = output.unsqueeze(1).repeat(1, encoder_outputs.size(1), 1)
-
-        # [batch size, len_pre+len_post, dec_hid_dim+enc_hid_dim]
-        output = F.relu(torch.cat([encoder_outputs, output], dim=-1))
+        #prediction = [batch size, output dim]
+        prediction = self.fc_out(torch.cat((output, weighted), dim = 1))
         
-
-        # enc_hidden: (bsz, len_pre+len_post, 1)
-        output = self.fc_out(output)
         
-        return output
+        return prediction
+
 
 
 class Attention(nn.Module):
@@ -242,15 +145,14 @@ class Attention(nn.Module):
         # encoder_outputs = encoder_outputs.permute(1, 0, 2)
         
         # print(hidden.shape, encoder_outputs.shape, torch.cat((hidden, encoder_outputs), dim = -1).shape)
+        
+        # [batch size, src len, dec hid dim]
         energy = torch.tanh(self.attn(torch.cat((hidden, encoder_outputs), dim = -1))) 
         
         # print(hidden.shape, encoder_outputs.shape)
         
-        #energy = [batch size, src len, dec hid dim]
-
         attention = self.v(energy).squeeze(2)
         
         #attention= [batch size, src len]
-        
         return F.softmax(attention, dim=1)
 

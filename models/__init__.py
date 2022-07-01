@@ -1,37 +1,59 @@
-
-
-
-from models.single import (
+from models.single_type import (
     SingleType,
-    SingleTypeAttn, 
+    SingleTypeAttn,  
+)
+from models.single_point import ( 
     SinglePoint,
     SinglePointAttn, 
-    # SingleAll
 )
 
-from models.seq2seq import (
+from models.single_all import (
+    SingleAll,
+    SingleAllAttn,  
+)
+
+
+
+from models.seq2seq_type import (
     Seq2SeqType,
-    # Seq2SeqTypeAttn, 
+    Seq2SeqTypeAttn, 
     # Seq2SeqPoint, 
     # Seq2SeqAll
+)
+
+from models.seq2seq_point import (
+    Seq2SeqPoint,
+    Seq2SeqPointAttn
+)
+
+from models.seq2seq_all import (
+    Seq2SeqAll,
+    Seq2SeqAllAttn
 )
 
 __dict__ = {
     'single_type' : SingleType,
     'single_type_attn' : SingleTypeAttn,
     
-
-    'seq2seq_type': Seq2SeqType,
-    
-
-    
     'single_point': SinglePoint,
     'single_point_attn' : SinglePointAttn,
     
-    # 'single_all': SingleAll,
+
+
+    'seq2seq_type': Seq2SeqType,
+    'seq2seq_type_attn': Seq2SeqTypeAttn,
     
-    # 'seq2seq_point': Seq2SeqPoint,
-    # 'seq2seq_all': Seq2SeqAll
+
+    
+    'single_all': SingleAll,
+    'single_all_attn': SingleAllAttn,
+    
+    'seq2seq_point': Seq2SeqPoint,
+    'seq2seq_point_attn': Seq2SeqPointAttn,
+
+    
+    'seq2seq_all': Seq2SeqAll,
+    'seq2seq_all_attn': Seq2SeqAllAttn,
     }
 
 MODELS = list(__dict__.keys())
@@ -39,4 +61,5 @@ MODELS = list(__dict__.keys())
 
 
 def load_model(*args, **kwargs):
-        return __dict__[kwargs['mode']](*args, **kwargs)
+    
+    return __dict__[kwargs['mode']](*args, **kwargs)

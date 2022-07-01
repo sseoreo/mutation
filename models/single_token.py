@@ -8,7 +8,7 @@ class MutationToken(nn.Module):
     def __init__(self,vocab_size,em_dim, hidden_dim):
         super().__init__()
         self.hidden_dim = hidden_dim
-        self.embedding = Embedding_layer(vocab_size, em_dim)
+        self.embedding = nn.Embedding(vocab_size, em_dim)
         self.pre_encoder = PreEncoder(self.embedding, em_dim, hidden_size = hidden_dim)
         self.post_encoder = PostEncoder(self.embedding, em_dim, hidden_size = hidden_dim)
         # self.classifier = nn.Linear(2 * hidden_dim, vocab_size)
