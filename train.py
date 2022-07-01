@@ -135,7 +135,7 @@ def train_point(args, model, optimizer, trainset, validset, logger):
 
             pre_out, post_out = model(pre.to(args.device), post.to(args.device), label_pre, label_post)
             # print(pre_out.shape, post_out.shape, label_pre.shape)
-
+            
             label_pre = label_pre.reshape(-1)
             label_post = label_post.reshape(-1)
 
@@ -146,7 +146,7 @@ def train_point(args, model, optimizer, trainset, validset, logger):
             predicted_post = (post_out>0.5).int().reshape(-1)
 
 
-            print(predicted_pre.shape, label_pre.shape, predicted_pre == label_pre)
+            # print(predicted_pre.shape, label_pre.shape, predicted_pre == label_pre)
 
             total += predicted_pre.size(0) + predicted_post.size(0)
             correct += ( predicted_pre == label_pre).sum() + \
