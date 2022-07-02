@@ -248,6 +248,7 @@ def eval_point(args, model, dataset):
 def train_all(args, model, optimizer, trainset, validset, logger):
     
     best_f1 = 0.
+    count = 0
     for epoch in range(args.epochs):
         
         print(f"[{epoch}/{args.epochs}] epochs training...")
@@ -267,9 +268,9 @@ def train_all(args, model, optimizer, trainset, validset, logger):
             label_type = label_type.reshape(-1)
             label_pre = label_pre.reshape(-1)
             label_post = label_post.reshape(-1)
-            loss = F.binary_cross_entropy(pre_out.reshape(-1), label_pre, reduction='sum') + \
-                        F.binary_cross_entropy(post_out.reshape(-1), label_post, reduction='sum')
-            loss += F.cross_entropy(out_type.reshape(-1, args.vocab_size), label_type, reduction='sum')
+            loss = F.binary_cross_entropy(pre_out.reshape(-1), label_pre, reduction='mean') + \
+                        F.binary_cross_entropy(post_out.reshape(-1), label_post, reduction='mean')
+            loss += F.cross_entropy(out_type.reshape(-1, args.vocab_size), label_type, reduction='mean')
 
             # print(correct/total, correct, total)
             optimizer.zero_grad()
@@ -285,13 +286,23 @@ def train_all(args, model, optimizer, trainset, validset, logger):
 
             # print(predicted_pre.shape, label_pre.shape, predicted_pre == label_pre)
             acc_type += predicted_type.eq(label_type).sum().item() / label_type.size(0)
-            acc_point += ( (predicted_pre == label_pre).sum().item()+( predicted_post == label_post).sum().item() ) / predicted_pre.size(0) + predicted_post.size(0)
+            acc_point += (predicted_pre.eq(label_pre).sum().item() / predicted_pre.size(0) + 
+                        (predicted_post == label_post).sum().item() / predicted_post.size(0) ) /2.
+
+            
             train_f1 += (torchmetrics.functional.f1_score(predicted_pre, label_pre.int(), multiclass=False) \
                             + torchmetrics.functional.f1_score(predicted_post, label_post.int(), multiclass=False)) / 2
 
             train_loss += loss.data
-            
-            break
+        
+        print({
+                'epoch': epoch,
+                'train/loss': train_loss / i,
+                'train/f1': train_f1 / i,
+                'train/acc_type': 100. * acc_type / i,
+                'train/acc_point': 100. * acc_point / i 
+
+            })
         
         if logger is not None:
             logger.log({
@@ -307,8 +318,10 @@ def train_all(args, model, optimizer, trainset, validset, logger):
             valid_loss, valid_acc, valid_f1 = eval_all(args, model, validset)
             print('[epoch %d/%d] val_loss: %.3f' %
                 (epoch, args.epochs, valid_loss))            
-            print('[epoch %d/%d] val_acc: %.3f' %
-                (epoch, args.epochs, valid_acc))  
+            print('[epoch %d/%d] val_acc_type: %.3f' %
+                (epoch, args.epochs, valid_acc[0]))             
+            print('[epoch %d/%d] val_acc_point: %.3f' %
+                (epoch, args.epochs, valid_acc[1]))  
             print('[epoch %d/%d] val_f1: %.3f' %
                 (epoch, args.epochs, valid_f1))           
 
@@ -320,6 +333,15 @@ def train_all(args, model, optimizer, trainset, validset, logger):
             
             if logger is not None:
                 logger.log({
+                    'epoch': epoch,
+                    'best_f1': best_f1,
+                    'valid/loss': valid_loss,
+                    'valid/f1': valid_f1,
+                    # 'train/ppl': math.exp(train_loss / (i+1)),
+                    'valid/acc_type': valid_acc[0] ,
+                    'valid/acc_point': valid_acc[1]
+                })
+            print({
                     'epoch': epoch,
                     'best_f1': best_f1,
                     'valid/loss': valid_loss,
@@ -348,9 +370,9 @@ def eval_all(args, model, dataset):
             label_type = label_type.reshape(-1)
             label_pre = label_pre.reshape(-1)
             label_post = label_post.reshape(-1)
-            loss = F.binary_cross_entropy(pre_out.reshape(-1), label_pre, reduction='sum') + \
-                        F.binary_cross_entropy(post_out.reshape(-1), label_post, reduction='sum')
-            loss += F.cross_entropy(out_type.reshape(-1, args.vocab_size), label_type, reduction='sum')
+            loss = F.binary_cross_entropy(pre_out.reshape(-1), label_pre, reduction='mean') + \
+                        F.binary_cross_entropy(post_out.reshape(-1), label_post, reduction='mean')
+            loss += F.cross_entropy(out_type.reshape(-1, args.vocab_size), label_type, reduction='mean')
 
             
 
@@ -361,7 +383,9 @@ def eval_all(args, model, dataset):
 
             # print(predicted_pre.shape, label_pre.shape, predicted_pre == label_pre)
             acc_type += predicted_type.eq(label_type).sum().item() / label_type.size(0)
-            acc_point += ( (predicted_pre == label_pre).sum().item()+( predicted_post == label_post).sum().item() ) / predicted_pre.size(0) + predicted_post.size(0)
+            acc_point += (predicted_pre.eq(label_pre).sum().item() / predicted_pre.size(0) + 
+                        (predicted_post == label_post).sum().item() / predicted_post.size(0) ) /2.
+
             valid_f1 += (torchmetrics.functional.f1_score(predicted_pre, label_pre.int(), multiclass=False) \
                             + torchmetrics.functional.f1_score(predicted_post, label_post.int(), multiclass=False)) / 2
 
