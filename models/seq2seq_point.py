@@ -9,7 +9,7 @@ class Seq2SeqType(nn.Module):
         super().__init__()
 
         self.vocab_size =  vocab_size
-        self.embedding = Embedding_layer(vocab_size, embedding_dim)
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
         self.encoder = Encoder(self.embedding, embedding_dim, hidden_dim, hidden_dim, drop_p=args.drop_p)
         self.decoder = Decoder(self.embedding, vocab_size, embedding_dim, hidden_dim, drop_p=args.drop_p)
 
@@ -57,18 +57,6 @@ class Seq2SeqType(nn.Module):
         return outputs.transpose(1, 0)
 
 
-class Embedding_layer(nn.Module):
-    def __init__(self, vocab_size, em_dim):
-        super().__init__()
-        self.size = vocab_size
-        self.em_dim = em_dim
-        self.embedding_layer = nn.Embedding(self.size, self.em_dim, padding_idx = 0)
-        
-    def forward(self,x):
-        # x = x.cpu().long()
-        # print(x, x.shape)
-        # x = torch.LongTensor(x)
-        return self.embedding_layer(x)
 
 class Encoder(nn.Module):
     def __init__(self, embedding, input_size, enc_hid_dim, dec_hid_dim, num_layer=1, drop_p=0.5):
