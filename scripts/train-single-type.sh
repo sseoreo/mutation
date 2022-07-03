@@ -1,6 +1,6 @@
-CUDA_VISIBLE_DEVICES=0,1,2,3 python3.8 main.py \
+CUDA_VISIBLE_DEVICES=0,1 python3.8 main.py \
     --mode single_type \
-    --batch_size 4096 \
+    --batch_size 1024 \
     --epoch 100 \
     --lr 0.001 \
     --src_len 50 \

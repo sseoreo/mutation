@@ -25,40 +25,39 @@ class Seq2SeqType(nn.Module):
         """
         # print("model input", pre_seq.shape, post_seq.shape, trg.shape)
 
-        # pre_seq, post_seq, trg = pre_seq.transpose(1, 0), post_seq.transpose(1, 0), trg.transpose(1, 0)
-        # print("model input (transpose)", pre_seq.shape, post_seq.shape, trg.shape)
 
-        bsz, max_len = trg.shape
+        bsz, max_len, = trg.shape
         outputs = torch.zeros(bsz, max_len, self.vocab_size).cuda()
 
         # enc_out: (bsz, seq_len, 2*hidden_dim), prev_hidden: (n_layer, bsz, 2*hidden_dim) 
-        enc_out, (prev_hidden, prev_cell) = self.encoder(pre_seq, post_seq)
-        
+        enc_out, prev_hidden = self.encoder(pre_seq, post_seq)
+        # prev_hidden = self.fc_hidden(prev_hidden) 
+        # prev_cell = self.fc_hidden(prev_cell)
 
         # first input. 
         # input = trg[0, :]
-        input = pre_seq[-1, :]
+        input = pre_seq[:, -1]
 
         for t in range(0, max_len):
 
             # output: (bsz, vocab)
-            output, (prev_hidden, prev_cell) = self.decoder(input, prev_hidden, prev_cell, enc_out)
+            output, prev_hidden = self.decoder(input, prev_hidden, enc_out)
 
-            # outputs: (max_len, bsz, vocab)
-            outputs[t] = output
+            # outputs: (bsz, max_len, vocab)
+            outputs[:, t] = output
             
             teacher_force = random.random() < teacher_forcing_ratio
             pred = output.argmax(-1)
             
             # print(pred.shape, pred[0], trg[t-1][0])
-            input = trg[t] if teacher_force else pred
+            input = trg[:, t] if teacher_force else pred
             
         # print(outputs.argmax(-1)[:, 0], trg[:, 0])
-        return outputs.transpose(1, 0)
+        return outputs
 
 
 class Seq2SeqTypeAttn(nn.Module):
-    def __init__(self, args, vocab_size, embedding_dim, hidden_dim):
+    def __init__(self, args, vocab_size, embedding_dim, hidden_dim, mode):
         super().__init__()
 
         self.vocab_size =  vocab_size
@@ -66,7 +65,7 @@ class Seq2SeqTypeAttn(nn.Module):
 
         self.encoder = Encoder(self.embedding, embedding_dim, hidden_dim, hidden_dim, drop_p=args.drop_p)
         self.attention = Attention(hidden_dim, hidden_dim)
-        self.decoder = Decoder(self.embedding, vocab_size, embedding_dim, hidden_dim, hidden_dim, self.attention, drop_p=args.drop_p)
+        self.decoder = DecoderAttn(self.embedding, vocab_size, embedding_dim, hidden_dim, hidden_dim, self.attention, drop_p=args.drop_p)
 
         # self.fc_hidden = nn.Linear(hidden_dim*2, embedding_dim)
         # self.fc_cell = nn.Linear(hidden_dim*2, embedding_dim)
@@ -85,69 +84,68 @@ class Seq2SeqTypeAttn(nn.Module):
         outputs = torch.zeros(bsz, max_len, self.vocab_size).cuda()
 
         # enc_out: (bsz, seq_len, 2*hidden_dim), prev_hidden: (n_layer, bsz, 2*hidden_dim) 
-        enc_out, (prev_hidden, prev_cell) = self.encoder(pre_seq, post_seq)
+        enc_out, prev_hidden = self.encoder(pre_seq, post_seq)
         # prev_hidden = self.fc_hidden(prev_hidden) 
         # prev_cell = self.fc_hidden(prev_cell)
 
         # first input. 
-        input = trg[0, :]
-        # input = pre_seq[-1, :]
+        # input = trg[0, :]
+        input = pre_seq[:, -1]
 
         for t in range(0, max_len):
 
             # output: (bsz, vocab)
-            output, (prev_hidden, prev_cell) = self.decoder(input, prev_hidden, prev_cell, enc_out)
+            output, prev_hidden = self.decoder(input, prev_hidden, enc_out)
 
-            # outputs: (max_len, bsz, vocab)
-            outputs[t] = output
+            # outputs: (bsz, max_len, vocab)
+            outputs[:, t] = output
             
             teacher_force = random.random() < teacher_forcing_ratio
             pred = output.argmax(-1)
             
             # print(pred.shape, pred[0], trg[t-1][0])
-            input = trg[t] if teacher_force else pred
+            input = trg[:, t] if teacher_force else pred
             
         # print(outputs.argmax(-1)[:, 0], trg[:, 0])
-        return outputs.transpose(1, 0)
+        return outputs
+
 
 class Encoder(nn.Module):
-    def __init__(self, embedding, input_size, enc_hid_dim, dec_hid_dim, num_layer=1, drop_p=0.5):
+    def __init__(self, embedding, emb_dim, enc_hid_dim, dec_hid_dim, num_layers=1, drop_p=0.5, batch_first=True):
         super().__init__()
         self.embedding = embedding
-        self.input_size = input_size
+        self.emb_dim = emb_dim
         self.enc_hid_dim = enc_hid_dim
-        self.num_layer = num_layer
         
-        self.pre_encoder = nn.LSTM(input_size=input_size, hidden_size=self.enc_hid_dim, num_layers=self.num_layer, batch_first=False, dropout=drop_p)
-        self.post_encoder = nn.LSTM(input_size=input_size, hidden_size=self.enc_hid_dim, num_layers=self.num_layer, batch_first=False, dropout=drop_p)
+        
+        self.pre_enc_layer = nn.GRU(input_size=emb_dim, hidden_size=self.enc_hid_dim, num_layers=num_layers, dropout=drop_p, batch_first=batch_first)
+        self.post_enc_layer = nn.GRU(input_size=emb_dim, hidden_size=self.enc_hid_dim, num_layers=num_layers, dropout=drop_p, batch_first=batch_first)
         self.dropout = nn.Dropout(drop_p)
         self.fc = nn.Linear(enc_hid_dim * 2, dec_hid_dim)
 
-    def forward(self, prefix, postfix):
+    def forward(self, pre_seq, post_seq):
         """
-        :param prefix: (len_seq, bsz)
-        :param postfix: (len_seq, bsz)
-        :return stacked_out: (len_sze, bsz, 2* hidden_dim)
-        :return (stacked_hidden, stacked_cell): (n_layer, bsz, 2* hidden_dim)
+        :param prefix: (bsz, len_pre)
+        :param postfix: (bsz, len_post)
+        :return enc_out: (bsz, len_pre+len_post, enc_hid_dim)
+        :return enc_hidden: (bsz, dec_hid_dim)
         """
-        assert prefix.size(1) == postfix.size(1)
+        assert pre_seq.size(1) == post_seq.size(1)
 
-
-        pre_batch = self.dropout(self.embedding(prefix))
-        post_batch = self.dropout(self.embedding(postfix))
-        # print(post_batch.shape)
-        pre_out, (pre_hidden, pre_cell) = self.pre_encoder(pre_batch)
-        post_out, (post_hidden, post_cell) = self.post_encoder(post_batch)
-        # print(pre_out.shape, pre_hidden.shape, pre_cell.shape)
+        pre_seq = self.dropout(self.embedding(pre_seq))
+        post_seq = self.dropout(self.embedding(post_seq)) 
         
-        # (len_pre+len_post), bsz, hid_dim
-        stacked_out = torch.cat((pre_out, post_out), dim = 0) 
+        pre_out, pre_hidden = self.pre_enc_layer(pre_seq)
+        post_out, post_hidden = self.post_enc_layer(post_seq)
+        # print(pre_out.shape, pre_hidden.shape)
         
-        # bsz, len_seq, 2 * hidden_dim
-        stacked_hidden = torch.tanh(self.fc(torch.cat((pre_hidden, post_hidden), dim = -1)))
-        stacked_cell = torch.tanh(self.fc(torch.cat((pre_cell, post_cell), dim = -1)))
+        # bsz, (len_pre+len_post), hid_dim
+        enc_out = torch.cat((pre_out, post_out), dim = 1) 
         
-        return stacked_out, (stacked_hidden, stacked_cell)
+        # return only last layer
+        enc_hidden = torch.tanh(self.fc(torch.cat((pre_hidden[-1, :, :], post_hidden[-1, :, :]), dim = -1)))
+        
+        return enc_out, enc_hidden
 
 
         
@@ -156,11 +154,11 @@ class Decoder(nn.Module):
         super().__init__()
         self.embedding = embedding
 
-        self.rnn = nn.LSTM(embedding_dim, dec_hid_dim, num_layers=num_layer, batch_first=False, dropout=drop_p)
+        self.rnn = nn.GRU(embedding_dim, dec_hid_dim, num_layers=num_layer, batch_first=True, dropout=drop_p)
         self.fc_out = nn.Linear(dec_hid_dim, num_embddings)
         self.dropout = nn.Dropout(drop_p)
 
-    def forward(self, input, prev_hidden, prev_cell, *args):
+    def forward(self, input, prev_hidden, *args):
         """
         :param input: (1, bsz)
         :param prev_hidden: (n_layer, bsz, dec_hid_dim)
@@ -168,31 +166,31 @@ class Decoder(nn.Module):
         :return output: (1, bsz, vocab_size)
         """
         # bsz = input.size(0)
-        input = input.unsqueeze(0) # (1, bsz) for rnn
+        input = input.unsqueeze(1) # (1, bsz) for rnn
         embed = self.dropout(self.embedding(input))
  
-
-        # output: (1, bsz, hidden_dim)
-        output, (hidden, cell) = self.rnn(embed, (prev_hidden, prev_cell))
+        # print(embed.shape, prev_hidden.shape)
+        # output: (bsz, 1,  hidden_dim)
+        output, hidden = self.rnn(embed, prev_hidden.unsqueeze(0))
         # print(output.shape, embed.shape, prev_hidden.shape, prev_cell.shape)
         
-        output = self.fc_out(output.squeeze(0))
-        return output, (hidden, cell)
+        output = self.fc_out(output.squeeze(1))
+        return output, hidden
 
 
         
 
-class Decoder(nn.Module):
+class DecoderAttn(nn.Module):
     def __init__(self, embedding, num_embddings, embedding_dim, enc_hid_dim, dec_hid_dim, attention, drop_p=0.5, ):
         super().__init__()
         self.embedding = embedding
         self.attention = attention
 
-        self.rnn = nn.LSTM( enc_hid_dim +embedding_dim, dec_hid_dim, batch_first=True, dropout=drop_p)
+        self.rnn = nn.GRU( enc_hid_dim +embedding_dim, dec_hid_dim, batch_first=True, dropout=drop_p)
         self.fc_out = nn.Linear(enc_hid_dim +embedding_dim+dec_hid_dim, num_embddings)
         self.dropout = nn.Dropout(drop_p)
 
-    def forward(self, input, prev_hidden, prev_cell, enc_out):
+    def forward(self, input, prev_hidden, enc_out):
         """
         :param input: (1, bsz)
         :param prev_hidden: (bsz, hidden_dim*2)
@@ -211,28 +209,29 @@ class Decoder(nn.Module):
         
         # bsz, 1, enc hid dim
         weighted = torch.bmm(a, enc_out)
-        print(weighted.shape)
+        # print(embed.shape, weighted.shape)
 
         # bsz, 1, emb_dim+enc_hid_dim
         rnn_input = torch.cat((embed, weighted), dim = -1)
 
         # output: (1, bsz, hidden_dim)
-        print(rnn_input.shape, embed.shape, weighted.shape, prev_hidden.shape, prev_cell.shape)
-        output, (hidden, cell) = self.rnn(rnn_input, (prev_hidden.unsqueeze(1), prev_cell.unsqueeze(1)))
+        # print(rnn_input.shape, embed.shape, weighted.shape, prev_hidden.shape)
+        output, hidden = self.rnn(rnn_input, prev_hidden.unsqueeze(0))
         
-        # print(output.shape, embed.shape, prev_hidden.shape, prev_cell.shape)
-        assert (output == hidden).all()
+        # print(output.shape, hidden.shape, embed.shape, )
+        # assert (output == hidden).all()
 
-        embed = embed.squeeze(0)
-        output = output.squeeze(0)
-        weighted = weighted.squeeze(0)
+        embed = embed.squeeze(1)
+        output = output.squeeze(1)
+        weighted = weighted.squeeze(1)
+        
         
         # bsz, emb_dim + 2*enc_hid_dim + dec_hid_dim
         output = torch.cat((output, weighted, embed), dim = 1)
-
+        
         output = self.fc_out(output)
 
-        return output, (hidden.squeeze(0), cell.squeeze(0))
+        return output, hidden.squeeze(0)
 
 
 class Attention(nn.Module):
@@ -253,6 +252,7 @@ class Attention(nn.Module):
         #repeat decoder hidden state src_len times
         #hidden = [batch size, src len, dec hid dim]
         #encoder_outputs = [batch size, src len, enc hid dim * 2]
+        # print(hidden.shape, encoder_outputs.shape, )
         
         hidden = hidden.unsqueeze(1).repeat(1, src_len, 1)
         # encoder_outputs = encoder_outputs.permute(1, 0, 2)

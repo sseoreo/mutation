@@ -99,7 +99,7 @@ if __name__ == '__main__':
 
     model = torch.nn.DataParallel(model).to(args.device)
 
-    if args.mode in ['single_type', 'single_point', 'single_all', 'single_type_attn', 'single_point_attn']:
+    if args.mode.startswith('single'):
         trainset = SingleToken(args.data_path, 
                             length=args.src_len, 
                             split='train', 
@@ -112,7 +112,7 @@ if __name__ == '__main__':
         print(len(trainset), len(validset), len(testset))
         
 
-    elif args.mode in ['seq2seq_type', 'seq2seq_point', 'seq2seq_all']:
+    elif args.mode.startswith('seq2seq'):
         trainset = SingleToken(args.data_path, 
                             length=args.src_len, 
                             split='train', 
