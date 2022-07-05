@@ -32,11 +32,11 @@ from models.seq2seq_all import (
 )
 
 __dict__ = {
-    'single_type' : SingleType,
-    'single_type_attn' : SingleTypeAttn,
+    'single_type' : Seq2SeqType,
+    'single_type_attn' : Seq2SeqTypeAttn,
     
-    'single_point': SinglePoint,
-    'single_point_attn' : SinglePointAttn,
+    'single_point': Seq2SeqPoint,
+    'single_point_attn' : Seq2SeqPointAttn,
     
 
 

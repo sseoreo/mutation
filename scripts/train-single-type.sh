@@ -7,4 +7,4 @@ CUDA_VISIBLE_DEVICES=4,5 python3.8 main.py \
     --embedding_dim 128 \
     --hidden_dim 256 \
     --valid_interval 1 \
-    --debug
+    # --debug

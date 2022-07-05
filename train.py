@@ -112,7 +112,7 @@ def eval_type(args, model, dataset):
         with torch.no_grad():
 
             label_type = label_type.to(args.device)
-            out = model(pre.to(args.device), post.to(args.device), label_type)
+            out = model(pre.to(args.device), post.to(args.device), label_type, teacher_forcing_ratio=0)
 
             label = label_type.reshape(-1)
             loss = F.cross_entropy(out.reshape(-1, args.vocab_size), label, reduction='mean')
@@ -225,7 +225,7 @@ def eval_point(args, model, dataset):
             label_pre = label_pre.float().to(args.device)
             label_post = label_post.float().to(args.device)
 
-            pre_out, post_out = model(pre.to(args.device), post.to(args.device), label_type)
+            pre_out, post_out = model(pre.to(args.device), post.to(args.device), label_type, teacher_forcing_ratio=0)
             # pre_out, post_out = model(pre.to(args.device), post.to(args.device), label_pre, label_post)
             # print(pre_out.shape, post_out.shape, label_pre.shape)
 
@@ -379,7 +379,7 @@ def eval_all(args, model, dataset):
             label_post = label_post.float().to(args.device)
             label_type = label_type.to(args.device)
             
-            out_type, pre_out, post_out = model(pre.to(args.device), post.to(args.device), label_type)
+            out_type, pre_out, post_out = model(pre.to(args.device), post.to(args.device), label_type, teacher_forcing_ratio=0)
             # print(pre_out.shape, post_out.shape, label_pre.shape)
 
             label_type = label_type.reshape(-1)
