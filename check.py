@@ -72,9 +72,9 @@ def make_label(target, prefix, postfix):
 # file = "/home/sseo/mutation/data/datapoint-seq50-train.gz"
 
 
-txt_write = gzip.open("data/datapoints-50-rev-train.gz", "wt")
+txt_write = gzip.open("data/datapoint-seq50-eval.gz", "wt")
 data = []
-file = "/home/sseo/mutation/data/datapoints-50-rev-train.gz"
+file = "/home/sseo/mutation/data/datapoint-seq50-eval.gz"
 
 with gzip.open(file) as f:
     for i, line in enumerate(f):

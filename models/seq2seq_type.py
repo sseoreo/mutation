@@ -39,6 +39,7 @@ class Seq2SeqType(nn.Module):
         input = pre_seq[:, -1]
 
         for t in range(0, max_len):
+            # print(input.shape, prev_hidden.shape, enc_out.shape)
 
             # output: (bsz, vocab)
             output, prev_hidden = self.decoder(input, prev_hidden, enc_out)
@@ -78,7 +79,6 @@ class Seq2SeqTypeAttn(nn.Module):
         :param trg: (bsz, len_label)
         """
         # print("model input", pre_seq.shape, post_seq.shape, trg.shape)
-
 
         bsz, max_len, = trg.shape
         outputs = torch.zeros(bsz, max_len, self.vocab_size).cuda()
@@ -175,7 +175,7 @@ class Decoder(nn.Module):
         # print(output.shape, embed.shape, prev_hidden.shape, prev_cell.shape)
         
         output = self.fc_out(output.squeeze(1))
-        return output, hidden
+        return output, hidden.squeeze(0)
 
 
         

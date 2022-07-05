@@ -113,12 +113,12 @@ if __name__ == '__main__':
         
 
     elif args.mode.startswith('seq2seq'):
-        trainset = SingleToken(args.data_path, 
+        trainset = Seq2SeqToken(args.data_path, 
                             length=args.src_len, 
                             split='train', 
                             cache='data/datapoint-seq50-train.pkl'\
                                 if not args.debug else 'data/datapoint-seq50-eval.pkl')
-        evalset = SingleToken(args.data_path, length=args.src_len, split='eval', cache='data/datapoint-seq50-eval.pkl')
+        evalset = Seq2SeqToken(args.data_path, length=args.src_len, split='eval', cache='data/datapoint-seq50-eval.pkl')
         eval_size = len(evalset)
         validset, testset = torch.utils.data.random_split(evalset, (eval_size//2 , eval_size-eval_size//2))
         print(len(trainset), len(validset), len(testset))
@@ -133,8 +133,9 @@ if __name__ == '__main__':
     validloader = torch.utils.data.DataLoader(validset, batch_size=args.batch_size,
                                               shuffle=False, num_workers=args.num_workers, drop_last = True)
     optimizer = optim.Adam(model.parameters(), lr = args.lr)
-    
-    train(args, model, optimizer, trainloader, validloader, wandb_logger)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
+
+    train(args, model, optimizer, trainloader, validloader, scheduler, wandb_logger)
 
 
     model.load_state_dict(torch.load(os.path.join(args.output_dir, 'best.pt')))

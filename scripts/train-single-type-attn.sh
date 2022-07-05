@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=4,5 python3.8 main.py \
+CUDA_VISIBLE_DEVICES=6,7 python3.8 main.py \
     --mode single_type_attn \
     --batch_size 1024 \
     --epoch 100 \

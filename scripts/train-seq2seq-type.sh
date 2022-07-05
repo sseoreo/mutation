@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=0,1 python3.8 main.py \
+CUDA_VISIBLE_DEVICES=6,7 python3.8 main.py \
     --mode seq2seq_type \
     --batch_size 1024 \
     --epoch 100 \
@@ -7,5 +7,5 @@ CUDA_VISIBLE_DEVICES=0,1 python3.8 main.py \
     --embedding_dim 128 \
     --hidden_dim 256 \
     --valid_interval 1 \
-    # --data_path ..\
     # --debug
+    # --data_path ..\

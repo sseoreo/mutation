@@ -7,15 +7,15 @@ import torch.nn.functional as F
 
 import torchmetrics.functional 
 
-def train(args, model, optimizer, trainset, validset, logger=None):
+def train(args, model, optimizer, trainset, validset, scheduler=None, logger=None):
     if args.mode in ['single_type', 'single_type_attn', 'seq2seq_type', 'seq2seq_type_attn']:
-        train_type(args, model, optimizer, trainset, validset, logger)
+        train_type(args, model, optimizer, trainset, validset, scheduler, logger)
 
     elif args.mode in ['single_point', 'single_point_attn', 'seq2seq_point', 'seq2seq_point_attn']:
-        train_point(args, model, optimizer, trainset, validset, logger)
+        train_point(args, model, optimizer, trainset, validset, scheduler, logger)
 
     elif args.mode in ['single_all', 'single_all_attn', 'seq2seq_all', 'seq2seq_all_attn']:
-        train_all(args, model, optimizer, trainset, validset, logger)
+        train_all(args, model, optimizer, trainset, validset, scheduler, logger)
 
     else:
         raise Exception(f"Not defined mode: {args.mode}")
@@ -36,7 +36,7 @@ def evaluate(args, model, dataset):
         raise Exception(f"Not defined mode: {args.mode}")
 
 
-def train_type(args, model, optimizer, trainset, validset, logger):
+def train_type(args, model, optimizer, trainset, validset, scheduler, logger):
     
     best_acc = 0.
     for epoch in range(args.epochs):
@@ -45,12 +45,12 @@ def train_type(args, model, optimizer, trainset, validset, logger):
         train_loss, acc_type = 0., 0
         model.train()        
         for i, (pre, post, label_type, _, _) in enumerate(trainset, 1):
-            
+            # print(label_type.shape)
             label_type = label_type.to(args.device)
             out = model(pre.to(args.device), post.to(args.device), label_type)
             
             label = label_type.reshape(-1)
-            
+            # print(out.reshape(-1, args.vocab_size).shape)
             loss = F.cross_entropy(out.reshape(-1, args.vocab_size), label, reduction='mean')
 
             predicted = out.argmax(-1).reshape(-1)
@@ -99,7 +99,9 @@ def train_type(args, model, optimizer, trainset, validset, logger):
                     # 'train/ppl': math.exp(train_loss / (i+1)),
                     'valid/acc_type': valid_acc 
                 })    
-        print(f'Epoch : {epoch} Done!')
+        print(f'Epoch : {epoch} Done!')        
+        if scheduler is not None:
+            scheduler.step()
 
 
 def eval_type(args, model, dataset):
@@ -131,7 +133,7 @@ def eval_type(args, model, dataset):
 
 
 
-def train_point(args, model, optimizer, trainset, validset, logger):
+def train_point(args, model, optimizer, trainset, validset, scheduler, logger):
     
     best_f1 = 0.
     for epoch in range(args.epochs):
@@ -208,6 +210,9 @@ def train_point(args, model, optimizer, trainset, validset, logger):
                     'valid/acc_point': valid_acc 
                 })    
         print(f'Epoch : {epoch} Done!')
+        if scheduler is not None:
+            scheduler.step()
+
 
 
 def eval_point(args, model, dataset):
@@ -253,7 +258,7 @@ def eval_point(args, model, dataset):
     return valid_loss, valid_acc, valid_f1
 
 
-def train_all(args, model, optimizer, trainset, validset, logger):
+def train_all(args, model, optimizer, trainset, validset, scheduler, logger):
     
     best_f1 = 0.
     count = 0
@@ -360,6 +365,8 @@ def train_all(args, model, optimizer, trainset, validset, logger):
                 })    
         print(f'Epoch : {epoch} Done!')
 
+        if scheduler is not None:
+            scheduler.step()
 
 def eval_all(args, model, dataset):
     model.eval()

@@ -99,6 +99,7 @@ class Seq2SeqToken(Dataset):
     def __getitem__(self,idx):
         pre, post, label_type, label_prefix, label_postfix = self.data[idx]
         # return torch.LongTensor(pre), torch.LongTensor(post), torch.FloatTensor(label_prefix), torch.FloatTensor(label_postfix)
+        # print(torch.LongTensor(label_prefix).shape)
         return (
             torch.LongTensor(pre[-1*self.length:]), 
             torch.LongTensor(post[-1*self.length:]), 
@@ -115,10 +116,12 @@ class Seq2SeqToken(Dataset):
     
     def build_dataset(self, path):
         data = []
-        with gzip.open(path) as f:
+        # print(path)
+        with gzip.open(path, "rt") as f:
             for i, line in enumerate(f):
-                
-                line = json.loads(line.decode())
+                # print(line, i)
+                line = json.loads(line)
+
                 prefix = line['prefix']
                 postfix = line['postfix']
                 label_type = line['label-type']
