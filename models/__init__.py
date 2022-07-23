@@ -21,6 +21,13 @@ from models.seq2seq_type import (
     # Seq2SeqAll
 )
 
+# from models.seq2seq_type_new import (
+#     Seq2SeqTypeNew,
+#     Seq2SeqTypeAttnNew, 
+#     # Seq2SeqPoint, 
+#     # Seq2SeqAll
+# )
+
 from models.seq2seq_point import (
     Seq2SeqPoint,
     Seq2SeqPointAttn
@@ -35,25 +42,32 @@ __dict__ = {
     'single_type' : Seq2SeqType,
     'single_type_attn' : Seq2SeqTypeAttn,
     
-    'single_point': Seq2SeqPoint,
-    'single_point_attn' : Seq2SeqPointAttn,
     
 
 
     'seq2seq_type': Seq2SeqType,
     'seq2seq_type_attn': Seq2SeqTypeAttn,
     
+    # FIXME
+    # 'seq2seq_type_new': Seq2SeqTypeNew,
+    # 'seq2seq_type_attn': Seq2SeqTypeAttn,
+    
 
     
-    'single_all': SingleAll,
-    'single_all_attn': SingleAllAttn,
-    
+    'single_point': Seq2SeqPoint,
+    'single_point_attn' : Seq2SeqPointAttn,
     'seq2seq_point': Seq2SeqPoint,
     'seq2seq_point_attn': Seq2SeqPointAttn,
 
     
     'seq2seq_all': Seq2SeqAll,
     'seq2seq_all_attn': Seq2SeqAllAttn,
+
+
+    
+    'single_all': SingleAll,
+    'single_all_attn': SingleAllAttn,
+
     }
 
 MODELS = list(__dict__.keys())

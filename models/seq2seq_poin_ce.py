@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy
 import random
 
-class Seq2SeqPoint(nn.Module):
+class Seq2SeqPointCE(nn.Module):
     def __init__(self, args, vocab_size, embedding_dim, hidden_dim, mode):
         super().__init__()
 
@@ -60,7 +60,7 @@ class Seq2SeqPoint(nn.Module):
         return outputs_pre, outputs_post
 
 
-class Seq2SeqPointAttn(nn.Module):
+class Seq2SeqPointAttnCE(nn.Module):
     def __init__(self, args, vocab_size, embedding_dim, hidden_dim, mode):
         super().__init__()
 
@@ -70,9 +70,6 @@ class Seq2SeqPointAttn(nn.Module):
         self.encoder = Encoder(self.embedding, embedding_dim, hidden_dim, hidden_dim, drop_p=args.drop_p)
         self.attention = Attention(hidden_dim, hidden_dim)
         self.decoder = DecoderAttn(self.embedding, vocab_size, embedding_dim, hidden_dim, hidden_dim, self.attention, drop_p=args.drop_p)
-
-        # self.fc_hidden = nn.Linear(hidden_dim*2, embedding_dim)
-        # self.fc_cell = nn.Linear(hidden_dim*2, embedding_dim)
 
         
         
@@ -93,9 +90,7 @@ class Seq2SeqPointAttn(nn.Module):
 
         # enc_out: (bsz, seq_len, 2*hidden_dim), prev_hidden: (n_layer, bsz, 2*hidden_dim) 
         enc_out, prev_hidden = self.encoder(pre_seq, post_seq)
-        # prev_hidden = self.fc_hidden(prev_hidden) 
-        # prev_cell = self.fc_hidden(prev_cell)
-
+        
         # first input. 
         # input = trg[0, :]
         input = pre_seq[:, -1]
@@ -106,7 +101,6 @@ class Seq2SeqPointAttn(nn.Module):
             output, prev_hidden = self.decoder(input, prev_hidden, enc_out)
 
             # outputs: (bsz, max_len, vocab)
-            # print(outputs_pre[:, t, :].shape, output[:, :len_pre, :].shape)
             outputs_pre[:, t, :, :] = output[:, :len_pre, :]
             outputs_post[:, t, :, :] = output[:, len_pre:, :]
             

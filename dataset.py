@@ -16,16 +16,77 @@ import json
 
 __dict__ = {
     "single": "datapoints-50-rev",
-    "seq2seq": "datapoint-seq50"
+    "seq2seq": "datapoint-seq50",
+    "single_refine": "unique-all"
 }
 DATASET = list(__dict__.keys())
 
 
-class SingleToken(Dataset):
-    def __init__(self, data_dir, length=50, split='train', cache=None):
+
+class SingleRefine(Dataset):
+    def __init__(self, data_dir, length=50, split='train', cache=None, train_cases=[0,1,2]):
+
         self.length = length
         self.split = split
-        data_dir = os.path.join(data_dir, __dict__['single'])
+        # data_dir = os.path.join(data_dir, __dict__["single_refine"])
+        
+        if cache is not None and os.path.exists(cache):
+            print(f"load dataset from {cache}...")
+        
+            with open(cache, 'rb') as f:
+                self.data = pickle.load(f)
+
+        else:
+            path = os.path.join(data_dir, f'train-{__dict__["single_refine"]}') if split == 'train' \
+                            else os.path.join(data_dir, f'test-{__dict__["single_refine"]}')
+
+            self.data = self.build_dataset(path)
+            if cache is not None:
+                with open(cache, 'wb') as f:
+                    pickle.dump(self.data, f)
+
+        self.data = list(filter(lambda x: x[-1] in train_cases, self.data))
+        
+    def __getitem__(self,idx):
+        pre, post, label_type, label_prefix, label_postfix, case = self.data[idx]
+        # print(pre, post, label_type, label_prefix, label_postfix, case)
+        # return torch.LongTensor(pre), torch.LongTensor(post), torch.FloatTensor(label_prefix), torch.FloatTensor(label_postfix)
+        return (
+            torch.LongTensor(pre[-1*self.length:]), 
+            torch.LongTensor(post[-1*self.length:]), 
+            torch.LongTensor(label_type), 
+            torch.LongTensor(label_prefix[-1*self.length:]), 
+            torch.LongTensor(label_postfix[-1*self.length:]),
+                )
+
+    def __len__(self):
+        return len(self.data)
+    
+    
+    def build_dataset(self, path):
+        data = []
+        with open(path, 'r') as f:
+            for i, line in enumerate(f):
+                
+                line = json.loads(line)
+                prefix = line['prefix']
+                postfix = line['postfix']
+                label_type = line['label-type']
+                label_prefix = line['label-prefix']
+                label_postfix = line['label-postfix']
+                case = line['case']
+                postfix.reverse()
+                label_postfix[0].reverse()
+                data.append([prefix, postfix, label_type, label_prefix, label_postfix, case])
+        return data
+
+        # print(self.data)
+
+class SingleToken(Dataset):
+    def __init__(self, data_dir, dataset='single', length=50, split='train', cache=None):
+        self.length = length
+        self.split = split
+        data_dir = os.path.join(data_dir, __dict__[dataset])
         
         if cache is not None and os.path.exists(cache):
             print(f"load dataset from {cache}...")

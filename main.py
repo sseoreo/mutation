@@ -29,9 +29,11 @@ PROJECT_NAME= 'mutation'
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Train Fuzzing Model")
     
-    parser.add_argument("--seed",  default=1253, type=int,
+    parser.add_argument("--seed", default=1253, type=int,
                         help="Randon seeds.")
-    parser.add_argument("--mode",  default='single_type', choices=models.MODELS, type=str,
+    parser.add_argument("--mode", default='single_type', choices=models.MODELS, type=str,
+                        help="optimizer")
+    parser.add_argument("--dataset", default='single', choices=dataset.DATASET, type=str,
                         help="optimizer")
     parser.add_argument('--debug', default=False, action='store_true', help='debug / not tracking')
 
@@ -99,8 +101,25 @@ if __name__ == '__main__':
 
     model = torch.nn.DataParallel(model).to(args.device)
 
-    if args.mode.startswith('single'):
-        trainset = SingleToken(args.data_path, 
+    if args.dataset == 'single_refine':
+        trainset = SingleRefine(args.data_path,
+                            length=args.src_len, 
+                            split='train', 
+                            train_cases=[0,1,2] if "type" in args.mode else [2],
+                            cache='data/train-unique-all.pkl' \
+                                if not args.debug else 'data/test-unique-all.pkl')
+
+        evalset = SingleRefine(args.data_path, 
+                            length=args.src_len, 
+                            split='eval',
+                            train_cases=[0,1,2] if "type" in args.mode else [2],
+                            cache='data/test-unique-all.pkl')
+        eval_size = len(evalset)
+        validset, testset = torch.utils.data.random_split(evalset, (eval_size//2 , eval_size-eval_size//2))
+        print(len(trainset), len(validset), len(testset))
+
+    elif args.dataset == 'single':
+        trainset = SingleToken(args.data_path,
                             length=args.src_len, 
                             split='train', 
                             cache='data/datapoints-50-rev-train.pkl' \
@@ -111,8 +130,7 @@ if __name__ == '__main__':
         validset, testset = torch.utils.data.random_split(evalset, (eval_size//2 , eval_size-eval_size//2))
         print(len(trainset), len(validset), len(testset))
         
-
-    elif args.mode.startswith('seq2seq'):
+    elif args.dataset == 'seq2seq':
         trainset = Seq2SeqToken(args.data_path, 
                             length=args.src_len, 
                             split='train', 

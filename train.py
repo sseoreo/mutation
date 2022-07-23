@@ -3,12 +3,13 @@ import math
 
 from sklearn import multiclass
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 
 import torchmetrics.functional 
 
 def train(args, model, optimizer, trainset, validset, scheduler=None, logger=None):
-    if args.mode in ['single_type', 'single_type_attn', 'seq2seq_type', 'seq2seq_type_attn']:
+    if args.mode in ['single_type', 'single_type_attn', 'seq2seq_type', 'seq2seq_type_attn', 'seq2seq_type_new',]:
         train_type(args, model, optimizer, trainset, validset, scheduler, logger)
 
     elif args.mode in ['single_point', 'single_point_attn', 'seq2seq_point', 'seq2seq_point_attn']:
@@ -135,6 +136,9 @@ def eval_type(args, model, dataset):
 
 def train_point(args, model, optimizer, trainset, validset, scheduler, logger):
     
+    
+    # loss_fn = nn.BCEWithLogitsLoss(reduction='mean', pos_weight=torch.tensor([1/64, 63/64]))
+    loss_fn = F.binary_cross_entropy_with_logits
     best_f1 = 0.
     for epoch in range(args.epochs):
         
@@ -151,8 +155,12 @@ def train_point(args, model, optimizer, trainset, validset, scheduler, logger):
 
             label_pre = label_pre.reshape(-1)
             label_post = label_post.reshape(-1)
-            loss = F.binary_cross_entropy(pre_out.reshape(-1), label_pre, reduction='mean') + \
-                        F.binary_cross_entropy(post_out.reshape(-1), label_post, reduction='mean')
+            
+            # loss_weight = label_pre*63 +1
+            loss_weight = None
+
+            loss = loss_fn(pre_out.reshape(-1), label_pre, weight=loss_weight) + \
+                        loss_fn(post_out.reshape(-1), label_post, weight=loss_weight)
 
             predicted_pre = (pre_out>0.5).int().reshape(-1)
             predicted_post = (post_out>0.5).int().reshape(-1)
@@ -217,7 +225,9 @@ def train_point(args, model, optimizer, trainset, validset, scheduler, logger):
 
 def eval_point(args, model, dataset):
     model.eval()
-            
+    # loss_fn = nn.BCEWithLogitsLoss(reduction='mean', pos_weight=torch.tensor([1/64, 63/64]))
+    loss_fn = F.binary_cross_entropy_with_logits
+    
     valid_loss, valid_f1, acc_point = 0., 0., 0
     for i, (pre, post, label_type, label_pre, label_post) in enumerate(dataset, 1):
         with torch.no_grad():
@@ -232,8 +242,10 @@ def eval_point(args, model, dataset):
             label_pre = label_pre.reshape(-1)
             label_post = label_post.reshape(-1)
 
-            loss = F.binary_cross_entropy(pre_out.reshape(-1), label_pre, reduction='mean') + \
-                        F.binary_cross_entropy(post_out.reshape(-1), label_post, reduction='mean')
+            # loss_weight = label_pre*63 +1
+            loss_weight = None
+            loss = loss_fn(pre_out.reshape(-1), label_pre, weight=loss_weight) + \
+                        loss_fn(post_out.reshape(-1), label_post, weight=loss_weight)
 
             predicted_pre = (pre_out>0.5).int().reshape(-1)
             predicted_post = (post_out>0.5).int().reshape(-1)
