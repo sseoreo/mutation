@@ -143,7 +143,7 @@ def train_point(args, model, optimizer, trainset, validset, scheduler, logger):
     
     
     # loss_fn = nn.BCEWithLogitsLoss(reduction='mean', pos_weight=torch.tensor([1/64, 63/64]))
-    loss_fn = F.binary_cross_entropy_with_logits
+    loss_fn = F.cross_entropy
     best_f1 = 0.
     for epoch in range(args.epochs):
         
@@ -163,7 +163,6 @@ def train_point(args, model, optimizer, trainset, validset, scheduler, logger):
             
             # loss_weight = label_pre*63 +1
             loss_weight = None
-
             loss = loss_fn(pre_out.reshape(-1), label_pre, weight=loss_weight) + \
                         loss_fn(post_out.reshape(-1), label_post, weight=loss_weight)
 
