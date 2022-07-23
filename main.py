@@ -157,5 +157,8 @@ if __name__ == '__main__':
     testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size,
                                               shuffle=False, num_workers=args.num_workers, drop_last = False)
     
-    test_loss, test_acc, test_f1 = evaluate(args, model, testloader)
-
+    test_stats = evaluate(args, model, testloader)
+    if logger is not None:
+                logger.log({
+                    **{f"test/{k}":v for k,v in valid_stats.items()}
+                })  

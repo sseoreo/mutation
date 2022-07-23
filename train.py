@@ -149,6 +149,7 @@ def train_point(args, model, optimizer, trainset, validset, scheduler, logger):
         
         print(f"[{epoch}/{args.epochs}] epochs training...")
         train_loss, acc_point, train_f1 = 0., 0., 0.
+        train_precision, train_recall = 0., 0.
         model.train()        
         for i, (pre, post, label_type, label_pre, label_post) in enumerate(trainset, 1):
             
@@ -183,6 +184,11 @@ def train_point(args, model, optimizer, trainset, validset, scheduler, logger):
             acc_point += ( predicted_pre.eq(label_pre).sum().item() / predicted_pre.size(0) + 
                         predicted_post.eq(label_post).sum().item() / predicted_post.size(0) ) /2.
 
+            precision_pre, recall_pre = torchmetrics.functional.precision_recall(predicted_pre, label_pre.int(), multiclass=False)
+            precision_post, recall_post = torchmetrics.functional.precision_recall(predicted_post, label_post.int(), multiclass=False)
+            train_precision += (precision_pre+precision_post)/2.
+            train_recall += (recall_pre+recall_post)/2.
+
             
             train_f1 += (torchmetrics.functional.f1_score(predicted_pre, label_pre.int(), multiclass=False) \
                             + torchmetrics.functional.f1_score(predicted_post, label_post.int(), multiclass=False)) / 2
@@ -194,21 +200,23 @@ def train_point(args, model, optimizer, trainset, validset, scheduler, logger):
                 'epoch': epoch,
                 'train/loss': train_loss / i,
                 'train/f1': train_f1 / i,
+                'train/precision': train_precision / i,
+                'train/recall': train_recall / i,
                 'train/acc_point': 100. * acc_point / i 
             })
         
         if epoch % args.valid_interval == 0:
-            valid_loss, valid_acc, valid_f1 = eval_point(args, model, validset)
+            valid_stats = eval_point(args, model, validset)
             print('[epoch %d/%d] val_loss: %.3f' %
-                (epoch, args.epochs, valid_loss))            
+                (epoch, args.epochs, valid_stats['loss']))            
             print('[epoch %d/%d] val_acc: %.3f' %
-                (epoch, args.epochs, valid_acc))  
+                (epoch, args.epochs, valid_stats['acc_point']))  
             print('[epoch %d/%d] val_f1: %.3f' %
-                (epoch, args.epochs, valid_f1))           
+                (epoch, args.epochs, valid_stats['f1']))           
 
                 
-            if best_f1 < valid_f1:
-                best_f1 = valid_f1
+            if best_f1 < valid_stats['f1']:
+                best_f1 = valid_stats['f1']
                 torch.save(model.state_dict(), 
                                     os.path.join(args.output_dir, 'best.pt') )
             
@@ -216,10 +224,13 @@ def train_point(args, model, optimizer, trainset, validset, scheduler, logger):
                 logger.log({
                     'epoch': epoch,
                     'best_f1': best_f1,
-                    'valid/loss': valid_loss,
-                    'valid/f1': valid_f1,
-                    # 'train/ppl': math.exp(train_loss / (i+1)),
-                    'valid/acc_point': valid_acc 
+                    **{f"valid/{k}":v for k,v in valid_stats.items()}
+                    # 'valid/loss': valid_loss,
+                    # 'valid/f1': valid_f1,
+                    # 'train/precision': train_precision / i,
+                    # 'train/recall': train_recall / i,
+                    # # 'train/ppl': math.exp(train_loss / (i+1)),
+                    # 'valid/acc_point': valid_acc 
                 })    
         print(f'Epoch : {epoch} Done!')
         if scheduler is not None:
@@ -233,6 +244,7 @@ def eval_point(args, model, dataset):
     loss_fn = F.binary_cross_entropy_with_logits
     
     valid_loss, valid_f1, acc_point = 0., 0., 0
+    valid_precision, valid_recall = 0., 0.
     for i, (pre, post, label_type, label_pre, label_post) in enumerate(dataset, 1):
         with torch.no_grad():
 
@@ -259,6 +271,10 @@ def eval_point(args, model, dataset):
             acc_point += (predicted_pre.eq(label_pre).sum().item() / predicted_pre.size(0) + 
                         (predicted_post == label_post).sum().item() / predicted_post.size(0) ) /2.
 
+            precision_pre, recall_pre = torchmetrics.functional.precision_recall(predicted_pre, label_pre.int(), multiclass=False)
+            precision_post, recall_post = torchmetrics.functional.precision_recall(predicted_post, label_post.int(), multiclass=False)
+            valid_precision += (precision_pre+precision_post)/2.
+            valid_recall += (recall_pre+recall_post)/2.
             
             valid_f1 += (torchmetrics.functional.f1_score(predicted_pre, label_pre.int(), multiclass=False) \
                             + torchmetrics.functional.f1_score(predicted_post, label_post.int(), multiclass=False)) / 2
@@ -271,7 +287,9 @@ def eval_point(args, model, dataset):
     valid_loss /= i
     valid_acc = 100. * acc_point / i
     valid_f1 = valid_f1 / i
-    return valid_loss, valid_acc, valid_f1
+    valid_precision = valid_precision / i
+    valid_recall = valid_recall / i
+    return {'loss': valid_loss, 'acc_point': valid_acc, 'f1': valid_f1, 'precision': valid_precision, 'recall': valid_recall}
 
 
 def train_point_ce(args, model, optimizer, trainset, validset, scheduler, logger):
