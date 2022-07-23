@@ -5,11 +5,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from dataset import *
-# from models.seq2seq import MutationSeq2Seq
-# from models.seq2seq_attn import MutationSeq2SeqAttn
-# from models.single import *
-# from models.single_token import MutationToken
-# from models.single_token_cosine import MutationTokenCosine, cosine_similarity_loss
+
 import os
 import argparse
 

@@ -17,7 +17,9 @@ import json
 __dict__ = {
     "single": "datapoints-50-rev",
     "seq2seq": "datapoint-seq50",
-    "single_refine": "unique-all"
+    "single_refine": {'train': "train_unique",
+                      'validation': "test_unique",
+                      'test': "test_unique"}
 }
 DATASET = list(__dict__.keys())
 
@@ -37,8 +39,7 @@ class SingleRefine(Dataset):
                 self.data = pickle.load(f)
 
         else:
-            path = os.path.join(data_dir, f'train-{__dict__["single_refine"]}') if split == 'train' \
-                            else os.path.join(data_dir, f'test-{__dict__["single_refine"]}')
+            path = os.path.join(data_dir, __dict__["single_refine"][split])
 
             self.data = self.build_dataset(path)
             if cache is not None:

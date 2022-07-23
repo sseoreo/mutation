@@ -33,6 +33,11 @@ from models.seq2seq_point import (
     Seq2SeqPointAttn
 )
 
+from models.seq2seq_point_ce import (
+    Seq2SeqPointCE,
+    Seq2SeqPointAttnCE
+)
+
 from models.seq2seq_all import (
     Seq2SeqAll,
     Seq2SeqAllAttn
@@ -58,6 +63,10 @@ __dict__ = {
     'single_point_attn' : Seq2SeqPointAttn,
     'seq2seq_point': Seq2SeqPoint,
     'seq2seq_point_attn': Seq2SeqPointAttn,
+
+    'single_point_ce': Seq2SeqPoint,
+    'single_point_attn_ce' : Seq2SeqPointAttn,
+
 
     
     'seq2seq_all': Seq2SeqAll,
