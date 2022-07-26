@@ -4,7 +4,6 @@ import torch.nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
-from dataset import *
 
 import os
 import argparse
@@ -65,6 +64,9 @@ if __name__ == '__main__':
                         help="data path")
     parser.add_argument("--output_dir",  default='results',  type=str,
                         help="data path")
+                        
+    parser.add_argument("--train_interval",  default=50, type=int,
+                        help="iteration inerval for train.")
     parser.add_argument("--valid_interval",  default=5, type=int,
                         help="epoch inerval for validation.")
     parser.add_argument("--num_workers",  default=2, type=int,
@@ -94,54 +96,15 @@ if __name__ == '__main__':
         embedding_dim=args.embedding_dim, 
         hidden_dim=args.hidden_dim,
     )
+    models.init_weights(model)
 
     model = torch.nn.DataParallel(model).to(args.device)
-
-    if args.dataset == 'single_refine':
-        trainset = SingleRefine(args.data_path,
-                            length=args.src_len, 
-                            split='train', 
-                            train_cases=[0,1,2] if "type" in args.mode else [2],
-                            cache='data/train-unique-all.pkl' \
-                                if not args.debug else 'data/test-unique-all.pkl')
-
-        evalset = SingleRefine(args.data_path, 
-                            length=args.src_len, 
-                            split='eval',
-                            train_cases=[0,1,2] if "type" in args.mode else [2],
-                            cache='data/test-unique-all.pkl')
-        eval_size = len(evalset)
-        validset, testset = torch.utils.data.random_split(evalset, (eval_size//2 , eval_size-eval_size//2))
-        print(len(trainset), len(validset), len(testset))
-
-    elif args.dataset == 'single':
-        trainset = SingleToken(args.data_path,
-                            length=args.src_len, 
-                            split='train', 
-                            cache='data/datapoints-50-rev-train.pkl' \
-                                if not args.debug else 'data/datapoints-50-rev-eval.pkl')
-
-        evalset = SingleToken(args.data_path, length=args.src_len, split='eval', cache='data/datapoints-50-rev-eval.pkl')
-        eval_size = len(evalset)
-        validset, testset = torch.utils.data.random_split(evalset, (eval_size//2 , eval_size-eval_size//2))
-        print(len(trainset), len(validset), len(testset))
-        
-    elif args.dataset == 'seq2seq':
-        trainset = Seq2SeqToken(args.data_path, 
-                            length=args.src_len, 
-                            split='train', 
-                            cache='data/datapoint-seq50-train.pkl'\
-                                if not args.debug else 'data/datapoint-seq50-eval.pkl')
-        evalset = Seq2SeqToken(args.data_path, length=args.src_len, split='eval', cache='data/datapoint-seq50-eval.pkl')
-        eval_size = len(evalset)
-        validset, testset = torch.utils.data.random_split(evalset, (eval_size//2 , eval_size-eval_size//2))
-        print(len(trainset), len(validset), len(testset))
-        
-
-    else:
-        raise Exception("Not defined mode!")
-
     
+    # load_dataset
+    trainset, validset, testset = dataset.load_dataset(args, args.dataset)
+
+
+    # for train
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size,
                                               shuffle=True, num_workers=args.num_workers, drop_last = True)
     validloader = torch.utils.data.DataLoader(validset, batch_size=args.batch_size,
@@ -149,9 +112,10 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr = args.lr)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
 
+
     train(args, model, optimizer, trainloader, validloader, scheduler, wandb_logger)
 
-
+    # for test 
     model.load_state_dict(torch.load(os.path.join(args.output_dir, 'best.pt')))
 
     testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size,

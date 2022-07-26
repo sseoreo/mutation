@@ -1,5 +1,6 @@
-CUDA_VISIBLE_DEVICES=2,7 python3.8 main.py \
-    --mode single_point \
+CUDA_VISIBLE_DEVICES=5,6 python3.8 main.py \
+    --mode single_point_attn_ce \
+    --dataset july22 \
     --batch_size 256 \
     --epoch 100 \
     --lr 0.001 \
@@ -8,4 +9,4 @@ CUDA_VISIBLE_DEVICES=2,7 python3.8 main.py \
     --hidden_dim 256 \
     --valid_interval 1 \
     --data_path ../data \
-    --debug
+    # --debug
