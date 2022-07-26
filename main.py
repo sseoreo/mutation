@@ -45,17 +45,17 @@ if __name__ == '__main__':
                         help="gradient clipping")
 
     # model configuration
-    parser.add_argument("--vocab_size",  default=273, type=int,
+    parser.add_argument("--vocab_size",  default=213, type=int,
                         help="Vocabulary size.")
-    parser.add_argument("--embedding_dim",  default=64, type=int,
+    parser.add_argument("--embedding_dim",  default=256, type=int,
                         help="Embedding Dimensions.")
-    parser.add_argument("--hidden_dim",  default=64, type=int,
+    parser.add_argument("--hidden_dim",  default=512, type=int,
                         help="Hidden Dimensions of LSTM.")
-    parser.add_argument("--drop_p",  default=0.1, type=float,
+    parser.add_argument("--drop_p",  default=0.5, type=float,
                         help="dropout.")
     
     # data configuration:
-    parser.add_argument("--src_len",  default=50, type=int,
+    parser.add_argument("--src_len",  default=64, type=int,
                         help="length of source sentences(prefix, postfix).")
     parser.add_argument("--trg_len",  default=8, type=int,
                         help="length of target sentence(label-type).")
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     else:
         setup_exp.make_workspace(args, 'output_dir', '')
         wandb_logger = None
-                
+
     
     model = models.load_model(
         args,
