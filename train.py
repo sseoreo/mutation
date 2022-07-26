@@ -150,6 +150,8 @@ def train_point_bce(args, model, optimizer, trainset, validset, scheduler, logge
         train_precision, train_recall = 0., 0.
         model.train()        
         for i, (pre, post, label_type, label_pre, label_post) in enumerate(trainset, 1):
+            assert args.trg_len == len(label_type) == len(label_pre)
+
             # print(label_pre.argmax(-1))    
             label_pre = label_pre.to(args.device)
             label_post = label_post.to(args.device)
@@ -303,6 +305,7 @@ def train_point_ce(args, model, optimizer, trainset, validset, scheduler, logger
         train_precision, train_recall = 0., 0.
         model.train()        
         for i, (pre, post, label_type, label_pre, label_post) in enumerate(trainset, 1):
+            assert args.trg_len == len(label_type) == len(label_pre)
             
 
             label_pre = label_pre.to(args.device)

@@ -1,12 +1,14 @@
-CUDA_VISIBLE_DEVICES=2,7 python3.8 main.py \
+CUDA_VISIBLE_DEVICES=2,5 python3.8 main.py \
     --mode single_point_ce \
     --dataset july22 \
-    --batch_size 256 \
+    --batch_size 128 \
     --epoch 300 \
     --lr 0.001 \
     --src_len 64 \
+    --trg_len 1 \
     --embedding_dim 256 \
     --hidden_dim 512 \
+    --train_interval 1 \
     --valid_interval 1 \
     --data_path ../data \
     # --debug
