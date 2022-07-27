@@ -4,14 +4,14 @@ import torch.nn.functional as F
 import numpy
 import random
 
-class Seq2SeqPointBCE(nn.Module):
+class Seq2SeqPointNewBCE(nn.Module):
     def __init__(self, args, vocab_size, embedding_dim, hidden_dim, mode):
         super().__init__()
 
         self.vocab_size =  vocab_size
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
         self.encoder = Encoder(self.embedding, embedding_dim, hidden_dim, hidden_dim, drop_p=args.drop_p)
-        self.decoder = Decoder(self.embedding, embedding_dim, hidden_dim, hidden_dim, drop_p=args.drop_p)
+        self.decoder = Decoder(self.embedding, embedding_dim, enc_hid_dim=2*hidden_dim, dec_hid_dim=hidden_dim, drop_p=args.drop_p)
 
         
         
@@ -53,7 +53,7 @@ class Seq2SeqPointBCE(nn.Module):
         return outputs_pre, outputs_post
 
 
-class Seq2SeqPointAttnBCE(nn.Module):
+class Seq2SeqPointAttnNewBCE(nn.Module):
     def __init__(self, args, vocab_size, embedding_dim, hidden_dim, mode):
         super().__init__()
 
@@ -110,8 +110,8 @@ class Encoder(nn.Module):
         self.enc_hid_dim = enc_hid_dim
         
         
-        self.pre_enc_layer = nn.GRU(input_size=emb_dim, hidden_size=self.enc_hid_dim, num_layers=num_layers, dropout=drop_p, batch_first=batch_first)
-        self.post_enc_layer = nn.GRU(input_size=emb_dim, hidden_size=self.enc_hid_dim, num_layers=num_layers, dropout=drop_p, batch_first=batch_first)
+        self.pre_enc_layer = nn.GRU(input_size=emb_dim, hidden_size=self.enc_hid_dim, num_layers=num_layers, dropout=drop_p, batch_first=batch_first, bidirectional=True)
+        self.post_enc_layer = nn.GRU(input_size=emb_dim, hidden_size=self.enc_hid_dim, num_layers=num_layers, dropout=drop_p, batch_first=batch_first, bidirectional=True)
         self.dropout = nn.Dropout(drop_p)
         self.fc = nn.Linear(enc_hid_dim * 2, dec_hid_dim)
 
@@ -146,7 +146,7 @@ class Decoder(nn.Module):
 
         self.rnn = nn.GRU(embedding_dim, dec_hid_dim, num_layers=num_layer, batch_first=True, dropout=drop_p)
         
-        self.fc_out = nn.Linear(2*dec_hid_dim, 2)
+        self.fc_out = nn.Linear(enc_hid_dim+dec_hid_dim, 2)
         self.dropout = nn.Dropout(drop_p)
 
     def forward(self, input, prev_hidden, enc_out):
@@ -168,7 +168,7 @@ class Decoder(nn.Module):
         
         # bsz, enc_len, dec_hid_dim + hidden_dim
         output = F.relu(torch.cat([enc_out, output], dim=-1))
-
+        # print(output.shape, enc_out.shape)
         # bsz, enc_len, 2
         output = self.fc_out(output)
         

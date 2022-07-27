@@ -41,6 +41,10 @@ from models.seq2seq_point_bce import (
     Seq2SeqPointAttnBCE
 )
 
+from models.seq2seq_point_bce_new import (
+    Seq2SeqPointNewBCE,
+    Seq2SeqPointAttnNewBCE
+)
 
 from models.seq2seq_all import (
     Seq2SeqAll,
@@ -71,6 +75,9 @@ __dict__ = {
 
     'single_point_bce': Seq2SeqPointBCE,
     'single_point_attn_bce' : Seq2SeqPointAttnBCE,
+
+    'single_point_new_bce': Seq2SeqPointNewBCE,
+    'single_point_attn_new_bce' : Seq2SeqPointAttnNewBCE,
 
     'single_point_ce': Seq2SeqPointCE,
     'single_point_attn_ce' : Seq2SeqPointAttnCE,
