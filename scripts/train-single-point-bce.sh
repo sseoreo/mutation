@@ -1,4 +1,4 @@
-CUDA_DEVICE=5
+CUDA_DEVICE=2
 
 # CUDA_VISIBLE_DEVICES=$CUDA_DEVICE python3.8 main.py \
 #     --mode single_point_bce \
@@ -19,8 +19,8 @@ CUDA_DEVICE=5
 CUDA_VISIBLE_DEVICES=$CUDA_DEVICE python3.8 main.py \
     --mode single_point_new_bce \
     --dataset july22 \
-    --batch_size 256 \
-    --epoch 300 \
+    --batch_size 128 \
+    --epoch 100 \
     --lr 0.001 \
     --src_len 64 \
     --trg_len 1 \
@@ -29,4 +29,5 @@ CUDA_VISIBLE_DEVICES=$CUDA_DEVICE python3.8 main.py \
     --train_interval 1 \
     --valid_interval 1 \
     --data_path ../data \
+    --seed 24 \
     # --debug

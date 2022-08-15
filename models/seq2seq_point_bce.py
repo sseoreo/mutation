@@ -146,6 +146,7 @@ class Decoder(nn.Module):
 
         self.rnn = nn.GRU(embedding_dim, dec_hid_dim, num_layers=num_layer, batch_first=True, dropout=drop_p)
         
+        self.fc_hid = nn.Linear(enc_hid_dim, dec_hid_dim)
         self.fc_out = nn.Linear(2*dec_hid_dim, 2)
         self.dropout = nn.Dropout(drop_p)
 
@@ -162,6 +163,9 @@ class Decoder(nn.Module):
 
         # bsz, 1, dec_hid_dim
         output, hidden = self.rnn(embed, prev_hidden.unsqueeze(0))
+        
+        # bsz, enc_len, dec_hid_dim
+        enc_out = self.fc_hid(enc_out)
 
         # bsz, enc_len, dec_hid_dim
         output = output.repeat(1, enc_out.size(1), 1)

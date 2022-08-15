@@ -11,7 +11,7 @@ class Seq2SeqPointCE(nn.Module):
         self.vocab_size =  vocab_size
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
         self.encoder = Encoder(self.embedding, embedding_dim, hidden_dim, hidden_dim, drop_p=args.drop_p)
-        self.decoder = Decoder(self.embedding, embedding_dim, hidden_dim, hidden_dim, drop_p=args.drop_p)
+        self.decoder = Decoder(self.embedding, embedding_dim, 2*hidden_dim, hidden_dim, drop_p=args.drop_p)
         
 
         
@@ -26,8 +26,9 @@ class Seq2SeqPointCE(nn.Module):
         assert pre_seq.shape == post_seq.shape
         bsz, src_len = pre_seq.shape 
 
-        outputs_pre = torch.zeros(bsz, max_len, src_len, 1).cuda()
-        outputs_post = torch.zeros(bsz, max_len, src_len, 1).cuda()
+        # outputs_pre = torch.zeros(bsz, max_len, src_len, 1).cuda()
+        # outputs_post = torch.zeros(bsz, max_len, src_len, 1).cuda()
+        outputs = torch.zeros(bsz, max_len, 2*src_len, 1).cuda()
 
         # enc_out: (bsz, enc_len, enc_hid_dim)
         # prev_hidden: (n_layer, bsz, dec_hid_dim) 
@@ -43,13 +44,14 @@ class Seq2SeqPointCE(nn.Module):
             # output: (bsz, 2*src_len, 2)
             output, prev_hidden = self.decoder(input, prev_hidden, enc_out)
             
+            outputs[:, t, :, :] = output
             # outputs_pre, outputs_post: (bsz, max_len, src_len, 2)
-            outputs_pre[:, t, :, :] = output[:, :src_len, :]
-            outputs_post[:, t, :, :] = output[:, src_len:, :]
+            # outputs_pre[:, t, :, :] = output[:, :src_len, :]
+            # outputs_post[:, t, :, :] = output[:, src_len:, :]
 
             input = trg[:, t]
             
-        return outputs_pre.squeeze(-1), outputs_post.squeeze(-1)
+        return outputs.squeeze(-1)
 
 
 class Seq2SeqPointAttnCE(nn.Module):
@@ -111,8 +113,8 @@ class Encoder(nn.Module):
         self.enc_hid_dim = enc_hid_dim
         
         
-        self.pre_enc_layer = nn.GRU(input_size=emb_dim, hidden_size=self.enc_hid_dim, num_layers=num_layers, dropout=drop_p, batch_first=batch_first)
-        self.post_enc_layer = nn.GRU(input_size=emb_dim, hidden_size=self.enc_hid_dim, num_layers=num_layers, dropout=drop_p, batch_first=batch_first)
+        self.pre_enc_layer = nn.GRU(input_size=emb_dim, hidden_size=self.enc_hid_dim, num_layers=num_layers, dropout=drop_p, batch_first=batch_first, bidirectional=True)
+        self.post_enc_layer = nn.GRU(input_size=emb_dim, hidden_size=self.enc_hid_dim, num_layers=num_layers, dropout=drop_p, batch_first=batch_first, bidirectional=True)
         self.dropout = nn.Dropout(drop_p)
         self.fc = nn.Linear(enc_hid_dim * 2, dec_hid_dim)
 
@@ -130,7 +132,6 @@ class Encoder(nn.Module):
         
         pre_out, pre_hidden = self.pre_enc_layer(pre_seq)
         post_out, post_hidden = self.post_enc_layer(post_seq)
-        # print(pre_out.shape, pre_hidden.shape)
         
         # bsz, (len_pre+len_post), enc_hid_dim
         enc_out = torch.cat((pre_out, post_out), dim = 1) 
@@ -141,14 +142,19 @@ class Encoder(nn.Module):
         return enc_out, enc_hidden
 
 
+
 class Decoder(nn.Module):
     def __init__(self, embedding, embedding_dim, enc_hid_dim, dec_hid_dim, num_layer=1, drop_p=0.5):
         super().__init__()
+        
         self.embedding = embedding
 
         self.rnn = nn.GRU(embedding_dim, dec_hid_dim, num_layers=num_layer, batch_first=True, dropout=drop_p)
         
-        self.fc_out = nn.Linear(2*dec_hid_dim, 1)
+        self.fc_hid = nn.Linear(enc_hid_dim, dec_hid_dim)
+
+        self.fc_out = nn.Linear(2 * dec_hid_dim, 1)
+
         self.dropout = nn.Dropout(drop_p)
 
     def forward(self, input, prev_hidden, enc_out):
@@ -158,25 +164,25 @@ class Decoder(nn.Module):
         :param enc_out: (bsz, enc_len, enc_hid_dim)
         :return output: (bsz, enc_len, 2)
         """
-        # bsz = input.size(0)
+        bsz = input.size(0)
         input = input.unsqueeze(1) # (bsz, 1) for rnn
         embed = self.dropout(self.embedding(input))
 
         # bsz, 1, dec_hid_dim
         output, hidden = self.rnn(embed, prev_hidden.unsqueeze(0))
 
+        # bsz, enc_len, dec_hid_dim
+        enc_out = F.relu(self.fc_hid(enc_out))
 
         # bsz, enc_len, dec_hid_dim
         output = output.repeat(1, enc_out.size(1), 1)
         
-        # bsz, enc_len, dec_hid_dim + enc_hid_dim
+        # bsz, enc_len, dec_hid_dim + hidden_dim
         output = F.relu(torch.cat([enc_out, output], dim=-1))
-
-
-        # bsz, enc_len, 1
+        # print(output.shape, enc_out.shape)
+        # bsz, enc_len, 2
         output = self.fc_out(output)
-
-
+        
         return output, hidden.squeeze(0)
         
 class DecoderAttn(nn.Module):

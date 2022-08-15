@@ -52,11 +52,13 @@ def init_wandb(config, name='test', project_name='exp', debug=False):
     return wandb_logger
 
 def fix_seeds(seed):
+    if seed < 0: seed = random.randint(0, 1000)
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    
+    return seed
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('NN', add_help=False)
     parser.add_argument('--output_dir', default="results", type=str, help="hihihi") 

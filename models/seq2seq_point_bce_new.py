@@ -61,8 +61,8 @@ class Seq2SeqPointAttnNewBCE(nn.Module):
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
 
         self.encoder = Encoder(self.embedding, embedding_dim, hidden_dim, hidden_dim, drop_p=args.drop_p)
-        self.attention = Attention(hidden_dim, hidden_dim)
-        self.decoder = DecoderAttn(self.embedding, embedding_dim, hidden_dim, hidden_dim, self.attention, drop_p=args.drop_p)
+        self.attention = Attention(2*hidden_dim, hidden_dim)
+        self.decoder = DecoderAttn(self.embedding, embedding_dim, 2*hidden_dim, hidden_dim, self.attention, drop_p=args.drop_p)
 
         
         
@@ -142,11 +142,15 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(self, embedding, embedding_dim, enc_hid_dim, dec_hid_dim, num_layer=1, drop_p=0.5):
         super().__init__()
+        
         self.embedding = embedding
 
         self.rnn = nn.GRU(embedding_dim, dec_hid_dim, num_layers=num_layer, batch_first=True, dropout=drop_p)
         
-        self.fc_out = nn.Linear(enc_hid_dim+dec_hid_dim, 2)
+        self.fc_hid = nn.Linear(enc_hid_dim, dec_hid_dim)
+
+        self.fc_out = nn.Linear(2 * dec_hid_dim, 2)
+
         self.dropout = nn.Dropout(drop_p)
 
     def forward(self, input, prev_hidden, enc_out):
@@ -164,6 +168,9 @@ class Decoder(nn.Module):
         output, hidden = self.rnn(embed, prev_hidden.unsqueeze(0))
 
         # bsz, enc_len, dec_hid_dim
+        enc_out = F.relu(self.fc_hid(enc_out))
+
+        # bsz, enc_len, dec_hid_dim
         output = output.repeat(1, enc_out.size(1), 1)
         
         # bsz, enc_len, dec_hid_dim + hidden_dim
@@ -179,13 +186,19 @@ class DecoderAttn(nn.Module):
         super().__init__()
         
         self.embedding = embedding
+
         self.attention = attention
 
-        self.rnn = nn.GRU(enc_hid_dim +embedding_dim, dec_hid_dim, batch_first=True, dropout=drop_p)
+        self.rnn = nn.GRU(enc_hid_dim+embedding_dim, dec_hid_dim, batch_first=True, dropout=drop_p)
 
-        self.fc_out = nn.Linear(2*dec_hid_dim+embedding_dim+enc_hid_dim, 2)
+        self.fc_hid = nn.Linear(enc_hid_dim, dec_hid_dim)
+
+        self.fc_out = nn.Linear(2 * dec_hid_dim, 2)
+
         self.dropout = nn.Dropout(drop_p)
 
+        print(dec_hid_dim, embedding_dim, enc_hid_dim )
+        print(2*dec_hid_dim+embedding_dim+enc_hid_dim)
 
     def forward(self, input, prev_hidden, enc_out):
         """
@@ -197,18 +210,19 @@ class DecoderAttn(nn.Module):
         # bsz = input.size(0)
 
         # (bsz, 1) for rnn
-        input = input.unsqueeze(1) 
+        input = input.unsqueeze(1)
+
         embed = self.dropout(self.embedding(input))
 
         # bsz, enc_len
         a = self.attention(prev_hidden, enc_out)
-        
+
         # bsz, 1, enc_len
         a = a.unsqueeze(1)
-        
+
         # bsz, 1, enc_hid_dim
         weighted = torch.bmm(a, enc_out)
-        
+
         # bsz, 1, emb_dim+enc_hid_dim
         rnn_input = torch.cat((embed, weighted), dim = -1)
 
@@ -221,9 +235,14 @@ class DecoderAttn(nn.Module):
         weighted = weighted.repeat(1, enc_out.size(1), 1)
         embed = embed.repeat(1, enc_out.size(1), 1)
 
-
+        enc_out = F.relu(self.fc_hid(enc_out))
+        
+        # print(enc_out.shape, weighted.shape, output.shape, embed.shape )
         # bsz, enc_len, 2
-        output = self.fc_out(torch.cat([enc_out, weighted, output, embed], dim=-1))
+
+        output = torch.cat([enc_out, output], dim=-1)
+
+        output = self.fc_out(output)
         
         return output, hidden.squeeze(0)
 

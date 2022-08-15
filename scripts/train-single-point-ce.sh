@@ -11,4 +11,4 @@ CUDA_VISIBLE_DEVICES=2,5 python3.8 main.py \
     --train_interval 1 \
     --valid_interval 1 \
     --data_path ../data \
-    # --debug
+    --debug

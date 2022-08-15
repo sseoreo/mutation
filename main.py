@@ -74,7 +74,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     args.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    setup_exp.fix_seeds(args.seed)
+    args.seed = setup_exp.fix_seeds(args.seed)
 
     if not args.debug:
         setup_exp.make_workspace(args, 'output_dir', 'mode-lr-batch_size')
@@ -110,7 +110,7 @@ if __name__ == '__main__':
     validloader = torch.utils.data.DataLoader(validset, batch_size=args.batch_size,
                                               shuffle=False, num_workers=args.num_workers, drop_last = True)
     optimizer = optim.Adam(model.parameters(), lr = args.lr)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 
 
     train(args, model, optimizer, trainloader, validloader, scheduler, wandb_logger)
@@ -122,7 +122,7 @@ if __name__ == '__main__':
                                               shuffle=False, num_workers=args.num_workers, drop_last = False)
     
     test_stats = evaluate(args, model, testloader)
-    if logger is not None:
-                logger.log({
-                    **{f"test/{k}":v for k,v in valid_stats.items()}
-                })  
+    if wandb_logger is not None:
+        wandb_logger.log({
+            **{f"test/{k}":v for k,v in test_stats.items()}
+        })  

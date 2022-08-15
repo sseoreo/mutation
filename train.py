@@ -305,17 +305,23 @@ def train_point_ce(args, model, optimizer, trainset, validset, scheduler, logger
         train_precision, train_recall = 0., 0.
         model.train()        
         for i, (pre, post, label_type, label_pre, label_post) in enumerate(trainset, 1):
-            assert args.trg_len == len(label_type) == len(label_pre)
             
 
-            label_pre = label_pre.to(args.device)
-            label_post = label_post.to(args.device)
+            # label_pre = label_pre.to(args.device)
+            # label_post = label_post.to(args.device)
+            label = torch.cat([label_pre, label_post], dim=-1).to(args.device)
 
-            pre_out, post_out = model(pre.to(args.device), post.to(args.device), label_type)
+            output = model(pre.to(args.device), post.to(args.device), label_type)
             
-            len_pre = label_pre.size(-1) 
-            loss = (F.cross_entropy(pre_out.reshape(-1, len_pre), label_pre.argmax(-1).reshape(-1)) + \
-                    F.cross_entropy(post_out.reshape(-1, len_pre), label_post.argmax(-1).reshape(-1)) ) / 2
+
+            len_seq = label.size(-1)
+            
+            loss = F.cross_entropy(output.reshape(-1, len_seq), label.argmax(-1).reshape(-1))
+            
+
+
+            # loss = (F.cross_entropy(pre_out.reshape(-1, len_pre), label_pre.argmax(-1).reshape(-1)) + \
+            #         F.cross_entropy(post_out.reshape(-1, len_pre), label_post.argmax(-1).reshape(-1)) ) / 2
 
             # same with cross entropy
             # log_prob_pre = F.log_softmax(pre_out, dim=-1) * label_pre
@@ -334,27 +340,36 @@ def train_point_ce(args, model, optimizer, trainset, validset, scheduler, logger
             # label_pre = label_pre.argmax(-1)
             # label_post = label_post.argmax(-1)
 
-
-            predicted_pre = F.one_hot(pre_out.argmax(-1), num_classes=pre_out.size(-1)).reshape(-1)
-            predicted_post = F.one_hot(post_out.argmax(-1), num_classes=post_out.size(-1)).reshape(-1)
-
-            label_pre = label_pre.reshape(-1)
-            label_post = label_post.reshape(-1)
-
-            
-            acc_point += ( predicted_pre.eq(label_pre).sum().item() / predicted_pre.size(0) + 
-                        predicted_post.eq(label_post).sum().item() / predicted_post.size(0) ) /2.
-
-            precision_pre, recall_pre = torchmetrics.functional.precision_recall(predicted_pre, label_pre.int(), multiclass=False)
-            precision_post, recall_post = torchmetrics.functional.precision_recall(predicted_post, label_post.int(), multiclass=False)
-            train_precision += (precision_pre+precision_post)/2.
-            train_recall += (recall_pre+recall_post)/2.
-
-            
-            train_f1 += (torchmetrics.functional.f1_score(predicted_pre, label_pre.int(), multiclass=False) \
-                            + torchmetrics.functional.f1_score(predicted_post, label_post.int(), multiclass=False)) / 2
-
+            predicted = F.one_hot(output.argmax(-1), num_classes=output.size(-1)).reshape(-1)
+            label = label.reshape(-1)
+            acc_point += predicted.eq(label).sum().item() / predicted.size(0) 
+            precision, recall = torchmetrics.functional.precision_recall(predicted, label.int(), multiclass=False)
+            train_precision += precision
+            train_recall += recall
+            train_f1 += 2.0 / (1/precision + 1/recall)
             train_loss += loss.data
+
+
+            # predicted_pre = F.one_hot(pre_out.argmax(-1), num_classes=pre_out.size(-1)).reshape(-1)
+            # predicted_post = F.one_hot(post_out.argmax(-1), num_classes=post_out.size(-1)).reshape(-1)
+
+            # label_pre = label_pre.reshape(-1)
+            # label_post = label_post.reshape(-1)
+
+            
+            # acc_point += ( predicted_pre.eq(label_pre).sum().item() / predicted_pre.size(0) + 
+            #             predicted_post.eq(label_post).sum().item() / predicted_post.size(0) ) /2.
+
+            # precision_pre, recall_pre = torchmetrics.functional.precision_recall(predicted_pre, label_pre.int(), multiclass=False)
+            # precision_post, recall_post = torchmetrics.functional.precision_recall(predicted_post, label_post.int(), multiclass=False)
+            # train_precision += (precision_pre+precision_post)/2.
+            # train_recall += (recall_pre+recall_post)/2.
+
+            
+            # train_f1 += (torchmetrics.functional.f1_score(predicted_pre, label_pre.int(), multiclass=False) \
+            #                 + torchmetrics.functional.f1_score(predicted_post, label_post.int(), multiclass=False)) / 2
+
+            # train_loss += loss.data
         
         if logger is not None:
             logger.log({
@@ -401,39 +416,58 @@ def eval_point_ce(args, model, dataset):
     valid_precision, valid_recall = 0., 0.
     for i, (pre, post, label_type, label_pre, label_post) in enumerate(dataset, 1):
         with torch.no_grad():
-
-            label_pre = label_pre.to(args.device)
-            label_post = label_post.to(args.device)
-
-            pre_out, post_out = model(pre.to(args.device), post.to(args.device), label_type, teacher_forcing_ratio=0)
-
-            len_pre = label_pre.size(-1) 
-            loss = (F.cross_entropy(pre_out.reshape(-1, len_pre), label_pre.argmax(-1).reshape(-1)) + \
-                    F.cross_entropy(post_out.reshape(-1, len_pre), label_post.argmax(-1).reshape(-1)) ) / 2
-
-            # log_prob_pre = F.log_softmax(pre_out, dim=-1) * label_pre
-            # log_prob_post = F.log_softmax(post_out, dim=-1) * label_post
-            # loss = -1 * (log_prob_pre.mean() + log_prob_post.mean())
-
-
-            predicted_pre = F.one_hot(pre_out.argmax(-1), num_classes=pre_out.size(-1) ).reshape(-1)
-            predicted_post = F.one_hot(post_out.argmax(-1), num_classes=post_out.size(-1)).reshape(-1)
-
-            label_pre = label_pre.reshape(-1)
-            label_post = label_post.reshape(-1)
-
-            acc_point += (predicted_pre.eq(label_pre).sum().item() / predicted_pre.size(0) + 
-                        predicted_pre.eq(label_pre).sum().item() / predicted_post.size(0) ) /2.
-
-            precision_pre, recall_pre = torchmetrics.functional.precision_recall(predicted_pre, label_pre.int(), multiclass=False)
-            precision_post, recall_post = torchmetrics.functional.precision_recall(predicted_post, label_post.int(), multiclass=False)
-            valid_precision += (precision_pre+precision_post)/2.
-            valid_recall += (recall_pre+recall_post)/2.
             
-            valid_f1 += (torchmetrics.functional.f1_score(predicted_pre, label_pre.int(), multiclass=False) \
-                            + torchmetrics.functional.f1_score(predicted_post, label_post.int(), multiclass=False)) / 2
+            label = torch.cat([label_pre, label_post], dim=-1).to(args.device)
 
+            output = model(pre.to(args.device), post.to(args.device), label_type)
+            
+
+            len_seq = label.size(-1)
+            
+            loss = F.cross_entropy(output.reshape(-1, len_seq), label.argmax(-1).reshape(-1))
+            
+
+            predicted = F.one_hot(output.argmax(-1), num_classes=output.size(-1)).reshape(-1)
+            label = label.reshape(-1)
+            acc_point += predicted.eq(label).sum().item() / predicted.size(0) 
+            precision, recall = torchmetrics.functional.precision_recall(predicted, label.int(), multiclass=False)
+            valid_precision += precision
+            valid_recall += recall
+            valid_f1 += 2.0 / (1/precision + 1/recall)
             valid_loss += loss.data
+
+            # label_pre = label_pre.to(args.device)
+            # label_post = label_post.to(args.device)
+            
+            # pre_out, post_out = model(pre.to(args.device), post.to(args.device), label_type, teacher_forcing_ratio=0)
+    
+            # len_pre = label_pre.size(-1) 
+            # loss = (F.cross_entropy(pre_out.reshape(-1, len_pre), label_pre.argmax(-1).reshape(-1)) + \
+            #         F.cross_entropy(post_out.reshape(-1, len_pre), label_post.argmax(-1).reshape(-1)) ) / 2
+
+            # # log_prob_pre = F.log_softmax(pre_out, dim=-1) * label_pre
+            # # log_prob_post = F.log_softmax(post_out, dim=-1) * label_post
+            # # loss = -1 * (log_prob_pre.mean() + log_prob_post.mean())
+
+
+            # predicted_pre = F.one_hot(pre_out.argmax(-1), num_classes=pre_out.size(-1) ).reshape(-1)
+            # predicted_post = F.one_hot(post_out.argmax(-1), num_classes=post_out.size(-1)).reshape(-1)
+
+            # label_pre = label_pre.reshape(-1)
+            # label_post = label_post.reshape(-1)
+
+            # acc_point += (predicted_pre.eq(label_pre).sum().item() / predicted_pre.size(0) + 
+            #             predicted_pre.eq(label_pre).sum().item() / predicted_post.size(0) ) /2.
+
+            # precision_pre, recall_pre = torchmetrics.functional.precision_recall(predicted_pre, label_pre.int(), multiclass=False)
+            # precision_post, recall_post = torchmetrics.functional.precision_recall(predicted_post, label_post.int(), multiclass=False)
+            # valid_precision += (precision_pre+precision_post)/2.
+            # valid_recall += (recall_pre+recall_post)/2.
+            
+            # valid_f1 += (torchmetrics.functional.f1_score(predicted_pre, label_pre.int(), multiclass=False) \
+            #                 + torchmetrics.functional.f1_score(predicted_post, label_post.int(), multiclass=False)) / 2
+
+            # valid_loss += loss.data
             # print(predicted_pre, label_pre, total, correct, valid_f1)
 
     
