@@ -1,6 +1,6 @@
-CUDA_DEVICE=2
+CUDA_DEVICES=2,5
 
-# CUDA_VISIBLE_DEVICES=$CUDA_DEVICE python3.8 main.py \
+# CUDA_VISIBLE_DEVICES=$CUDA_DEVICES python3.8 main.py \
 #     --mode single_point_bce \
 #     --dataset july22 \
 #     --batch_size 256 \
@@ -16,7 +16,7 @@ CUDA_DEVICE=2
     # --debug
 
 
-CUDA_VISIBLE_DEVICES=$CUDA_DEVICE python3.8 main.py \
+CUDA_VISIBLE_DEVICES=$CUDA_DEVICES python3.8 main.py \
     --mode single_point_new_bce \
     --dataset july22 \
     --batch_size 128 \

@@ -168,13 +168,13 @@ class Decoder(nn.Module):
         output, hidden = self.rnn(embed, prev_hidden.unsqueeze(0))
 
         # bsz, enc_len, dec_hid_dim
-        enc_out = F.relu(self.fc_hid(enc_out))
+        enc_out = torch.tanh(self.fc_hid(enc_out))
 
         # bsz, enc_len, dec_hid_dim
         output = output.repeat(1, enc_out.size(1), 1)
         
         # bsz, enc_len, dec_hid_dim + hidden_dim
-        output = F.relu(torch.cat([enc_out, output], dim=-1))
+        output = torch.cat([enc_out, output], dim=-1)
         # print(output.shape, enc_out.shape)
         # bsz, enc_len, 2
         output = self.fc_out(output)
@@ -235,11 +235,10 @@ class DecoderAttn(nn.Module):
         weighted = weighted.repeat(1, enc_out.size(1), 1)
         embed = embed.repeat(1, enc_out.size(1), 1)
 
-        enc_out = F.relu(self.fc_hid(enc_out))
+        enc_out = torch.tanh(self.fc_hid(enc_out))
         
-        # print(enc_out.shape, weighted.shape, output.shape, embed.shape )
+        # print(enc_out.shape, weighted.shape, output.shape, embed.shape)
         # bsz, enc_len, 2
-
         output = torch.cat([enc_out, output], dim=-1)
 
         output = self.fc_out(output)
